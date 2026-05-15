@@ -1,9 +1,24 @@
 const { Client, GatewayIntentBits, AttachmentBuilder, SlashCommandBuilder, Routes } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, VoiceConnectionStatus } = require('@discordjs/voice');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource } = require('@discordjs/voice');
 const play = require('play-dl');
 const axios = require('axios');
+const express = require('express');
 require('dotenv').config();
 
+// --- 1. WEB SERVER FIX LỖI RENDER ---
+const app = express();
+const PORT = process.env.PORT || 8080;
+
+app.get('/', (req, res) => {
+    res.send('Park Jong Gun Bot is Live!');
+});
+
+// Quan trọng: Phải có dòng này để Render không tắt bot
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`✅ Web Server đang chạy tại port: ${PORT}`);
+});
+
+// --- 2. CẤU HÌNH BOT ---
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -13,111 +28,84 @@ const client = new Client({
     ]
 });
 
-// Quản lý trình phát nhạc
+const PREFIX = "+";
 const players = new Map();
 
-// 1. ĐĂNG KÝ SLASH COMMANDS
 client.on('ready', async () => {
     console.log(`🚀 Bot Online: ${client.user.tag}`);
     
     const commands = [
         new SlashCommandBuilder()
             .setName('music')
-            .setDescription('Phát nhạc theo link (Hỗ trợ Youtube/Spotify)')
-            .addStringOption(option => 
-                option.setName('link')
-                .setDescription('Dán link nhạc vào đây')
-                .setRequired(true)),
+            .setDescription('Phát nhạc từ Youtube/Spotify')
+            .addStringOption(opt => opt.setName('link').setDescription('Link bài hát').setRequired(true)),
         new SlashCommandBuilder()
             .setName('musicoff')
-            .setDescription('Tắt nhạc và rời khỏi kênh thoại')
+            .setDescription('Tắt nhạc và rời kênh')
     ];
 
     try {
         await client.rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-        console.log('✅ Đã cập nhật hệ thống lệnh Slash');
-    } catch (error) {
-        console.error('❌ Lỗi đăng ký lệnh:', error);
-    }
+        console.log('✅ Đã cập nhật Slash Commands');
+    } catch (err) { console.error(err); }
 });
 
-// 2. CHỨC NĂNG TỰ ĐỘNG NHẬN DIỆN LINK TẢI VIDEO
-const videoRegex = /https?:\/\/(www\.)?(tiktok\.com|youtube\.com|youtu\.be|instagram\.com)\/\S+/i;
-
+// --- 3. LỆNH PREFIX & EMOJI ---
 client.on('messageCreate', async (message) => {
-    if (message.author.bot || !videoRegex.test(message.content)) return;
+    if (message.author.bot) return;
 
-    // Nếu là link nhạc (để phát trong voice) thì bỏ qua không tải file
-    if (message.content.includes('spotify.com') || message.content.includes('watch?v=')) return;
+    // Lệnh +ping kèm Emoji tùy chỉnh
+    if (message.content.toLowerCase() === `${PREFIX}ping`) {
+        // HƯỚNG DẪN EMOJI: 
+        // 1. Gõ \:ten_emoji: trong Discord để lấy ID (Ví dụ: <:jonggun:123456789>)
+        // 2. Thay đoạn mã dưới đây bằng mã bạn vừa lấy được
+        const myEmoji = "<:jonggun_cool:123456789012345678>"; 
+        return message.reply(`🏓 Pong! Park Jong Gun vẫn đang Onl ${myEmoji}`);
+    }
 
-    const url = message.content.match(videoRegex)[0];
+    // Tự động tải video (TikTok, IG, YT Shorts)
+    const videoRegex = /https?:\/\/(www\.)?(tiktok\.com|youtube\.com|youtu\.be|instagram\.com)\/\S+/i;
+    if (videoRegex.test(message.content)) {
+        if (message.content.includes('spotify.com') || (message.content.includes('youtube.com/watch') && !message.content.includes('shorts'))) return;
 
-    try {
-        await message.channel.sendTyping();
-        const response = await axios.post('https://api.cobalt.tools/api/json', { 
-            url: url, 
-            vQuality: '720' 
-        });
-
-        if (response.data && response.data.url) {
-            const attachment = new AttachmentBuilder(response.data.url, { name: 'video.mp4' });
-            await message.reply({ content: '🎬 **Video của bạn đã sẵn sàng:**', files: [attachment] });
-        }
-    } catch (err) {
-        console.error('Lỗi tải video:', err.message);
+        try {
+            await message.channel.sendTyping();
+            const res = await axios.post('https://api.cobalt.tools/api/json', { url: message.content.match(videoRegex)[0], vQuality: '720' });
+            if (res.data?.url) {
+                const file = new AttachmentBuilder(res.data.url, { name: 'video.mp4' });
+                await message.reply({ content: '🎬 **Video của bạn:**', files: [file] });
+            }
+        } catch (e) { console.log('Lỗi tải video'); }
     }
 });
 
-// 3. XỬ LÝ LỆNH NHẠC (/MUSIC & /MUSICOFF)
-client.on('interactionCreate', async (interaction) => {
-    if (!interaction.isChatInputCommand()) return;
-
-    const { commandName, options, member, guildId } = interaction;
+// --- 4. LỆNH NHẠC ---
+client.on('interactionCreate', async (int) => {
+    if (!int.isChatInputCommand()) return;
+    const { commandName, options, member, guildId } = int;
     const voiceChannel = member.voice.channel;
 
-    // Kiểm tra kênh thoại
-    if (!voiceChannel) {
-        return interaction.reply({ content: "⚠️ Bạn cần vào một kênh thoại trước!", ephemeral: true });
-    }
+    if (!voiceChannel) return int.reply({ content: "⚠️ Vào kênh thoại trước nhé!", ephemeral: true });
 
     if (commandName === 'music') {
         const url = options.getString('link');
-        await interaction.deferReply();
-
+        await int.deferReply();
         try {
             let stream;
-            // Xử lý Spotify (Chuyển đổi sang tìm kiếm Youtube)
             if (play.sp_validate(url)) {
-                const spData = await play.spotify(url);
-                const searched = await play.search(`${spData.name} ${spData.artists[0].name}`, { limit: 1 });
-                stream = await play.stream(searched[0].url);
-            } 
-            // Xử lý Youtube trực tiếp
-            else if (play.yt_validate(url)) {
+                const data = await play.spotify(url);
+                const search = await play.search(`${data.name} ${data.artists[0].name}`, { limit: 1 });
+                stream = await play.stream(search[0].url);
+            } else if (play.yt_validate(url)) {
                 stream = await play.stream(url);
-            } else {
-                return interaction.editReply("❌ Link không hỗ trợ. Hãy dùng link YouTube hoặc Spotify.");
             }
-
-            const connection = joinVoiceChannel({
-                channelId: voiceChannel.id,
-                guildId: guildId,
-                adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-            });
-
+            const connection = joinVoiceChannel({ channelId: voiceChannel.id, guildId: guildId, adapterCreator: voiceChannel.guild.voiceAdapterCreator });
             const player = createAudioPlayer();
-            const resource = createAudioResource(stream.stream, { inputType: stream.type });
-
-            player.play(resource);
+            player.play(createAudioResource(stream.stream, { inputType: stream.type }));
             connection.subscribe(player);
             players.set(guildId, { connection, player });
-
-            await interaction.editReply(`🎶 Đang phát: **${url}**\n*Lưu ý: Chỉ dùng được trong kênh thoại.*`);
-
-        } catch (error) {
-            console.error(error);
-            await interaction.editReply("❌ Có lỗi xảy ra khi phát nhạc!");
-        }
+            await int.editReply(`🎶 Đ đang phát: **${url}**`);
+        } catch (e) { await int.editReply("❌ Lỗi phát nhạc."); }
     }
 
     if (commandName === 'musicoff') {
@@ -125,9 +113,7 @@ client.on('interactionCreate', async (interaction) => {
         if (session) {
             session.connection.destroy();
             players.delete(guildId);
-            await interaction.reply("⏹️ Đã dừng nhạc và rời kênh.");
-        } else {
-            await interaction.reply({ content: "❌ Hiện không có nhạc đang phát.", ephemeral: true });
+            await int.reply("⏹️ Đã tắt nhạc.");
         }
     }
 });
