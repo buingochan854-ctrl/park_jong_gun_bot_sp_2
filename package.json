@@ -1,7 +1,7 @@
 {
   "name": "park-jong-gun-bot",
-  "version": "1.3.0",
-  "description": "Discord Bot",
+  "version": "1.3.5",
+  "description": "Discord Bot Fixed 502 Error for Render",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
