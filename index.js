@@ -34,23 +34,11 @@ const videoRegex = /https?:\/\/(www\.)?(tiktok\.com|youtube\.com|youtu\.be|insta
 client.on('clientReady', async () => {
     console.log(`🚀 Bot Online: ${client.user.tag}`);
     
-    // Tự động nạp cấu hình token và xác thực từ file nếu có
-    try {
-        await play.getFreeToken();
-        // Kiểm tra xem đã có dữ liệu xác thực chưa để báo log Render
-        const authData = play.is_logged_in();
-        if (authData) {
-            console.log('✅ Đã nạp dữ liệu xác thực YouTube (Cookie) thành công!');
-        } else {
-            console.log('⚠️ Chưa cấu hình Cookie YouTube, có thể bị dính lỗi Sign in trên Render.');
-        }
-    } catch (e) { console.log('Không thể làm mới token ẩn danh:', e.message); }
-
     const commands = [
         new SlashCommandBuilder()
             .setName('music')
-            .setDescription('Phát nhạc nhanh từ Youtube hoặc Spotify')
-            .addStringOption(opt => opt.setName('link').setDescription('Liên kết bài hát').setRequired(true)),
+            .setDescription('Phát nhạc nhanh từ Spotify')
+            .addStringOption(opt => opt.setName('link').setDescription('Liên kết bài hát Spotify').setRequired(true)),
         new SlashCommandBuilder()
             .setName('musicoff')
             .setDescription('Tắt nhạc và rời khỏi kênh thoại')
@@ -100,7 +88,7 @@ client.on('messageCreate', async (message) => {
         return message.reply(statusMessage);
     }
 
-    // TỰ ĐỘNG TẢI VIDEO
+    // TỰ ĐỘNG TẢI VIDEO (TIKTOK/INSTAGRAM/SHORTS)
     if (videoRegex.test(message.content)) {
         if (message.content.includes('spotify.com') || (message.content.includes('youtube.com/watch') && !message.content.includes('shorts'))) return;
 
@@ -144,10 +132,9 @@ client.on('interactionCreate', async (int) => {
         const url = options.getString('link');
         try {
             let stream;
+            
+            // Nếu nhập link Spotify -> Xử lý giải mã luồng ẩn
             if (play.sp_validate(url)) {
-                if (play.is_sp_expired()) {
-                    await play.getFreeToken();
-                }
                 const data = await play.spotify(url);
                 const search = await play.search(`${data.name} ${data.artists[0].name}`, { limit: 1 });
                 if(search.length === 0) return int.editReply("Không tìm thấy bài hát này trên hệ thống.");
@@ -158,13 +145,10 @@ client.on('interactionCreate', async (int) => {
                     htmAgent: null
                 });
             } else if (play.yt_validate(url)) {
-                stream = await play.stream(url, { 
-                    quality: 1,
-                    seek: 0,
-                    htmAgent: null
-                });
+                // ĐỔI DÒNG MÔ TẢ THEO YÊU CẦU KHI USER NHẬP LINK YOUTUBE
+                return int.editReply("Xin lỗi các bạn, vì Token Youtube không nhận diện được nên chỉ support Spotify thôi nhé.");
             } else {
-                return int.editReply("Định dạng liên kết chưa được hỗ trợ (Chỉ nhận YouTube/Spotify).");
+                return int.editReply("Định dạng liên kết chưa được hỗ trợ (Vui lòng sử dụng link Spotify).");
             }
 
             const connection = joinVoiceChannel({ 
@@ -187,13 +171,8 @@ client.on('interactionCreate', async (int) => {
             await int.editReply(`Đang phát tại kênh thoại: ${url}`);
         } catch (e) { 
             console.error('Lỗi chi tiết phát nhạc:', e);
-            
-            // Xử lý báo lỗi thông minh nếu hệ thống chặn IP hoàn toàn
-            if (e.message && (e.message.includes('bot') || e.message.includes('Sign in') || e.message.includes('429'))) {
-                return int.editReply("Máy chủ YouTube đang chặn dải IP của Render (Yêu cầu xác minh). Hãy thử phát bằng link chia sẻ từ **Spotify** để bot tự động vượt tường lửa bằng API tìm kiếm thay thế.");
-            }
-            
-            await int.editReply("Gặp lỗi trong quá trình xử lý luồng phát nhạc hoặc kết nối quá hạn."); 
+            // Backup chặn toàn bộ các trường hợp lỗi Token quét ẩn từ YouTube
+            await int.editReply("Xin lỗi các bạn, vì Token Youtube không nhận diện được nên chỉ support Spotify thôi nhé."); 
         }
     }
 
@@ -210,4 +189,3 @@ client.on('interactionCreate', async (int) => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
-
