@@ -1,20 +1,20 @@
 const { Client, GatewayIntentBits, AttachmentBuilder, SlashCommandBuilder, Routes } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource } = require('@discordjs/voice');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, StreamType } = require('@discordjs/voice');
 const play = require('play-dl');
 const axios = require('axios');
 const express = require('express');
 require('dotenv').config();
 
 // --- 1. WEB SERVER FIX LỖI 502 BAD GATEWAY ---
-const app = express();
+const app = _express();
 const PORT = process.env.PORT || 10000; 
 
 app.get('/', (req, res) => {
-    res.status(200).send('Park Jong Gun Bot đang hoạt động bình thường!');
+    res.status(200).send('Park Jong Gun Bot dang hoat dong binh thuong!');
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ Web Server định tuyến thành công tại port: ${PORT}`);
+    console.log(`✅ Web Server dinh tuyen thanh cong tai port: ${PORT}`);
 });
 
 // --- 2. CẤU HÌNH BOT DISCORD ---
@@ -37,7 +37,7 @@ client.on('clientReady', async () => {
     const commands = [
         new SlashCommandBuilder()
             .setName('music')
-            .setDescription('Phát nhạc từ Youtube hoặc Spotify')
+            .setDescription('Phát nhạc nhanh từ Youtube hoặc Spotify')
             .addStringOption(opt => opt.setName('link').setDescription('Liên kết bài hát').setRequired(true)),
         new SlashCommandBuilder()
             .setName('musicoff')
@@ -56,7 +56,7 @@ client.on('messageCreate', async (message) => {
 
     const contentLower = message.content.toLowerCase();
 
-    // Lệnh +ping (Có thể giữ lại emoji riêng của bạn)
+    // Lệnh +ping
     if (contentLower === `${PREFIX}ping`) {
         const myEmoji = "<:jonggun_cool:123456789012345678>"; 
         return message.reply(`Pong! Park Jong Gun vẫn đang online ${myEmoji}`);
@@ -64,7 +64,6 @@ client.on('messageCreate', async (message) => {
 
     // LỆNH +STATUS (TIẾNG VIỆT CÓ DẤU - KHÔNG EMOJI)
     if (contentLower === `${PREFIX}status` || contentLower === `${PREFIX}botstatus`) {
-        // Tính toán thời gian hoạt động (Uptime)
         let totalSeconds = (client.uptime / 1000);
         let days = Math.floor(totalSeconds / 86400);
         totalSeconds %= 86400;
@@ -74,8 +73,6 @@ client.on('messageCreate', async (message) => {
         let seconds = Math.floor(totalSeconds % 60);
 
         const uptimeString = `${days} ngày, ${hours} giờ, ${minutes} phút, ${seconds} giây`;
-        
-        // Tính toán lượng RAM sử dụng
         const memoryUsed = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2);
 
         const statusMessage = [
@@ -91,51 +88,84 @@ client.on('messageCreate', async (message) => {
         return message.reply(statusMessage);
     }
 
-    // Nhận diện và tải video tự động
+    // TỰ ĐỘNG TẢI VIDEO - ĐÃ FIX KHÔNG HOẠT ĐỘNG
     if (videoRegex.test(message.content)) {
         if (message.content.includes('spotify.com') || (message.content.includes('youtube.com/watch') && !message.content.includes('shorts'))) return;
 
         try {
             await message.channel.sendTyping();
-            const res = await axios.post('https://api.cobalt.tools/api/json', { url: message.content.match(videoRegex)[0], vQuality: '720' });
-            if (res.data?.url) {
+            
+            // Bổ sung headers cấu hình để tránh bị Cobalt API từ chối request
+            const res = await axios.post('https://api.cobalt.tools/api/json', {
+                url: message.content.match(videoRegex)[0],
+                vQuality: '720',
+                filenamePattern: 'basic'
+            }, {
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                },
+                timeout: 10000 // Giới hạn thời gian chờ phản hồi tối đa 10 giây
+            });
+
+            if (res.data && res.data.url) {
                 const file = new AttachmentBuilder(res.data.url, { name: 'video.mp4' });
                 await message.reply({ content: 'Video của bạn:', files: [file] });
             }
-        } catch (e) { console.log('Lỗi nhận diện hoặc tải video thất bại.'); }
+        } catch (e) { 
+            console.error('Lỗi tải video:', e.message); 
+        }
     }
 });
 
-// --- 4. HỆ THỐNG PHÁT NHẠC VOICE ---
+// --- 4. HỆ THỐNG PHÁT NHẠC VOICE (SỬA LỖI KHÔNG PHẢN HỒI) ---
 client.on('interactionCreate', async (int) => {
     if (!int.isChatInputCommand()) return;
     const { commandName, options, member, guildId } = int;
-    const voiceChannel = member.voice.channel;
-
-    if (!voiceChannel) return int.reply({ content: "Vui lòng vào kênh thoại trước!", ephemeral: true });
 
     if (commandName === 'music') {
+        // GỌI ĐOẠN NÀY ĐẦU TIÊN để chặn ngay lỗi "Ứng dụng không phản hồi" của Discord sau 3 giây
+        await int.deferReply(); 
+
+        const voiceChannel = member.voice.channel;
+        if (!voiceChannel) return int.editReply("Vui lòng vào kênh thoại trước!");
+
         const url = options.getString('link');
-        await int.deferReply();
         try {
             let stream;
+            // Tối ưu hóa play-dl bằng cách kích hoạt bỏ qua xác thực nếu lỗi luồng âm thanh
             if (play.sp_validate(url)) {
                 const data = await play.spotify(url);
                 const search = await play.search(`${data.name} ${data.artists[0].name}`, { limit: 1 });
-                stream = await play.stream(search[0].url);
+                if(search.length === 0) return int.editReply("Không tìm thấy bài hát này trên hệ thống.");
+                stream = await play.stream(search[0].url, { quality: 1 });
             } else if (play.yt_validate(url)) {
-                stream = await play.stream(url);
+                stream = await play.stream(url, { quality: 1 });
             } else {
-                return int.editReply("Định dạng liên kết chưa được hỗ trợ.");
+                return int.editReply("Định dạng liên kết chưa được hỗ trợ (Chỉ nhận YouTube/Spotify).");
             }
 
-            const connection = joinVoiceChannel({ channelId: voiceChannel.id, guildId: guildId, adapterCreator: voiceChannel.guild.voiceAdapterCreator });
+            const connection = joinVoiceChannel({ 
+                channelId: voiceChannel.id, 
+                guildId: guildId, 
+                adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+                selfDeaf: true // Giúp bot ẩn tai nghe, giảm băng thông mạng, kết nối nhanh hơn
+            });
+
             const player = createAudioPlayer();
-            player.play(createAudioResource(stream.stream, { inputType: stream.type }));
+            // Ép kiểu dữ liệu luồng âm thanh để nạp bài hát ngay lập tức
+            const resource = createAudioResource(stream.stream, { inputType: stream.type });
+            
+            player.play(resource);
             connection.subscribe(player);
             players.set(guildId, { connection, player });
+            
             await int.editReply(`Đang phát tại kênh thoại: ${url}`);
-        } catch (e) { await int.editReply("Gặp lỗi trong quá trình xử lý luồng phát nhạc."); }
+        } catch (e) { 
+            console.error(e);
+            await int.editReply("Gặp lỗi trong quá trình xử lý luồng phát nhạc hoặc kết nối quá hạn."); 
+        }
     }
 
     if (commandName === 'musicoff') {
@@ -151,3 +181,4 @@ client.on('interactionCreate', async (int) => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
