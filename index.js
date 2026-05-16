@@ -34,11 +34,17 @@ const videoRegex = /https?:\/\/(www\.)?(tiktok\.com|youtube\.com|youtu\.be|insta
 client.on('clientReady', async () => {
     console.log(`🚀 Bot Online: ${client.user.tag}`);
     
+    // Khởi tạo client kết nối SoundCloud tự động không cần key
+    try {
+        await play.so_validate("https://soundcloud.com");
+        console.log('✅ Hệ thống nhạc SoundCloud đã sẵn sàng giải vây IP YouTube');
+    } catch (e) { console.log('Lỗi khởi tạo SoundCloud:', e.message); }
+
     const commands = [
         new SlashCommandBuilder()
             .setName('music')
-            .setDescription('Phát nhạc nhanh từ Spotify')
-            .addStringOption(opt => opt.setName('link').setDescription('Liên kết bài hát Spotify').setRequired(true)),
+            .setDescription('Phát nhạc từ Spotify hoặc SoundCloud (Không lo chặn IP)')
+            .addStringOption(opt => opt.setName('link').setDescription('Liên kết bài hát Spotify hoặc SoundCloud').setRequired(true)),
         new SlashCommandBuilder()
             .setName('musicoff')
             .setDescription('Tắt nhạc và rời khỏi kênh thoại')
@@ -88,7 +94,7 @@ client.on('messageCreate', async (message) => {
         return message.reply(statusMessage);
     }
 
-    // TỰ ĐỘNG TẢI VIDEO (TIKTOK/INSTAGRAM/SHORTS)
+    // TỰ ĐỘNG TẢI VIDEO
     if (videoRegex.test(message.content)) {
         if (message.content.includes('spotify.com') || (message.content.includes('youtube.com/watch') && !message.content.includes('shorts'))) return;
 
@@ -133,22 +139,26 @@ client.on('interactionCreate', async (int) => {
         try {
             let stream;
             
-            // Nếu nhập link Spotify -> Xử lý giải mã luồng ẩn
+            // HƯỚNG XỬ LÝ 1: NẾU LÀ LINK SPOTIFY
             if (play.sp_validate(url)) {
                 const data = await play.spotify(url);
-                const search = await play.search(`${data.name} ${data.artists[0].name}`, { limit: 1 });
-                if(search.length === 0) return int.editReply("Không tìm thấy bài hát này trên hệ thống.");
-                
-                stream = await play.stream(search[0].url, { 
-                    quality: 1,
-                    seek: 0,
-                    htmAgent: null
+                // Ép thư viện tìm kiếm bài hát thông qua nền tảng SoundCloud để né bộ chặn IP YouTube của Render
+                const search = await play.search(`${data.name} ${data.artists[0].name}`, { 
+                    limit: 1,
+                    source: { soundcloud: "tracks" } 
                 });
-            } else if (play.yt_validate(url)) {
-                // ĐỔI DÒNG MÔ TẢ THEO YÊU CẦU KHI USER NHẬP LINK YOUTUBE
-                return int.editReply("Xin lỗi các bạn, vì Token Youtube không nhận diện được nên chỉ support Spotify thôi nhé.");
+                if(search.length === 0) return int.editReply("Không tìm thấy bài hát này trên hệ thống dữ liệu.");
+                stream = await play.stream_from_value(search[0]);
+            } 
+            // HƯỚNG XỬ LÝ 2: NẾU NHẬP LINK SOUNDCLOUD TRỰC TIẾP
+            else if (play.so_validate(url)) {
+                stream = await play.stream(url);
+            } 
+            // CHẶN LINK YOUTUBE
+            else if (play.yt_validate(url)) {
+                return int.editReply("Xin lỗi các bạn, vì Token Youtube không nhận diện được nên chỉ support Spotify và SoundCloud thôi nhé.");
             } else {
-                return int.editReply("Định dạng liên kết chưa được hỗ trợ (Vui lòng sử dụng link Spotify).");
+                return int.editReply("Định dạng liên kết chưa được hỗ trợ (Vui lòng sử dụng link Spotify hoặc SoundCloud).");
             }
 
             const connection = joinVoiceChannel({ 
@@ -171,8 +181,7 @@ client.on('interactionCreate', async (int) => {
             await int.editReply(`Đang phát tại kênh thoại: ${url}`);
         } catch (e) { 
             console.error('Lỗi chi tiết phát nhạc:', e);
-            // Backup chặn toàn bộ các trường hợp lỗi Token quét ẩn từ YouTube
-            await int.editReply("Xin lỗi các bạn, vì Token Youtube không nhận diện được nên chỉ support Spotify thôi nhé."); 
+            await int.editReply("Gặp lỗi trong quá trình xử lý luồng phát nhạc hoặc kết nối quá hạn."); 
         }
     }
 
