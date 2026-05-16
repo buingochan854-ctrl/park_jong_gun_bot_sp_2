@@ -5,16 +5,16 @@ const axios = require('axios');
 const express = require('express');
 require('dotenv').config();
 
-// --- 1. WEB SERVER FIX LỖI 502 BAD GATEWAY ---
-const app = _express();
+// --- 1. WEB SERVER FIX LỖI 502 BAD GATEWAY (ĐÃ SỬA LỖI TYPO ĐƯỜNG TRUYỀN) ---
+const app = express(); // Sửa từ _express() thành express()
 const PORT = process.env.PORT || 10000; 
 
 app.get('/', (req, res) => {
-    res.status(200).send('Park Jong Gun Bot dang hoat dong binh thuong!');
+    res.status(200).send('Park Jong Gun Bot đang hoạt động bình thường!');
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ Web Server dinh tuyen thanh cong tai port: ${PORT}`);
+    console.log(`✅ Web Server định tuyến thành công tại port: ${PORT}`);
 });
 
 // --- 2. CẤU HÌNH BOT DISCORD ---
@@ -88,14 +88,13 @@ client.on('messageCreate', async (message) => {
         return message.reply(statusMessage);
     }
 
-    // TỰ ĐỘNG TẢI VIDEO - ĐÃ FIX KHÔNG HOẠT ĐỘNG
+    // TỰ ĐỘNG TẢI VIDEO
     if (videoRegex.test(message.content)) {
         if (message.content.includes('spotify.com') || (message.content.includes('youtube.com/watch') && !message.content.includes('shorts'))) return;
 
         try {
             await message.channel.sendTyping();
             
-            // Bổ sung headers cấu hình để tránh bị Cobalt API từ chối request
             const res = await axios.post('https://api.cobalt.tools/api/json', {
                 url: message.content.match(videoRegex)[0],
                 vQuality: '720',
@@ -106,7 +105,7 @@ client.on('messageCreate', async (message) => {
                     'Content-Type': 'application/json',
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                 },
-                timeout: 10000 // Giới hạn thời gian chờ phản hồi tối đa 10 giây
+                timeout: 10000
             });
 
             if (res.data && res.data.url) {
@@ -119,13 +118,12 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// --- 4. HỆ THỐNG PHÁT NHẠC VOICE (SỬA LỖI KHÔNG PHẢN HỒI) ---
+// --- 4. HỆ THỐNG PHÁT NHẠC VOICE ---
 client.on('interactionCreate', async (int) => {
     if (!int.isChatInputCommand()) return;
     const { commandName, options, member, guildId } = int;
 
     if (commandName === 'music') {
-        // GỌI ĐOẠN NÀY ĐẦU TIÊN để chặn ngay lỗi "Ứng dụng không phản hồi" của Discord sau 3 giây
         await int.deferReply(); 
 
         const voiceChannel = member.voice.channel;
@@ -134,7 +132,6 @@ client.on('interactionCreate', async (int) => {
         const url = options.getString('link');
         try {
             let stream;
-            // Tối ưu hóa play-dl bằng cách kích hoạt bỏ qua xác thực nếu lỗi luồng âm thanh
             if (play.sp_validate(url)) {
                 const data = await play.spotify(url);
                 const search = await play.search(`${data.name} ${data.artists[0].name}`, { limit: 1 });
@@ -150,11 +147,10 @@ client.on('interactionCreate', async (int) => {
                 channelId: voiceChannel.id, 
                 guildId: guildId, 
                 adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-                selfDeaf: true // Giúp bot ẩn tai nghe, giảm băng thông mạng, kết nối nhanh hơn
+                selfDeaf: true 
             });
 
             const player = createAudioPlayer();
-            // Ép kiểu dữ liệu luồng âm thanh để nạp bài hát ngay lập tức
             const resource = createAudioResource(stream.stream, { inputType: stream.type });
             
             player.play(resource);
