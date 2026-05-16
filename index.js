@@ -1,16 +1,15 @@
 const { Client, GatewayIntentBits, AttachmentBuilder, SlashCommandBuilder, Routes } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource } = require('@discordjs/voice');
-const play = require('play-dl');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, StreamType } = require('@discordjs/voice');
 const axios = require('axios');
 const express = require('express');
 require('dotenv').config();
 
-// --- 1. WEB SERVER FIX LỒI 502 BAD GATEWAY ---
+// --- 1. WEB SERVER GIỮ BOT ONLINE ---
 const app = express(); 
 const PORT = process.env.PORT || 10000; 
 
 app.get('/', (req, res) => {
-    res.status(200).send('Park Jong Gun Bot đang hoạt động bình thường!');
+    res.status(200).send('Park Jong Gun Bot Music chuẩn Spotify đang chạy!');
 });
 
 app.listen(PORT, '0.0.0.0', () => {
@@ -33,12 +32,13 @@ const videoRegex = /https?:\/\/(www\.)?(tiktok\.com|youtube\.com|youtu\.be|insta
 
 client.on('clientReady', async () => {
     console.log(`🚀 Bot Online: ${client.user.tag}`);
-    
+    console.log('✅ Đã loại bỏ hoàn toàn play-dl để né bộ quét IP!');
+
     const commands = [
         new SlashCommandBuilder()
             .setName('music')
-            .setDescription('Phát nhạc từ Spotify hoặc SoundCloud (Không lo chặn IP)')
-            .addStringOption(opt => opt.setName('link').setDescription('Liên kết bài hát Spotify hoặc SoundCloud').setRequired(true)),
+            .setDescription('Phát nhạc từ link Spotify chuẩn')
+            .addStringOption(opt => opt.setName('link').setDescription('Liên kết bài hát Spotify').setRequired(true)),
         new SlashCommandBuilder()
             .setName('musicoff')
             .setDescription('Tắt nhạc và rời khỏi kênh thoại')
@@ -53,13 +53,11 @@ client.on('clientReady', async () => {
 // --- 3. LỆNH PREFIX & TỰ ĐỘNG TẢI VIDEO ---
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
-
     const contentLower = message.content.toLowerCase();
 
     // Lệnh +ping
     if (contentLower === `${PREFIX}ping`) {
-        const myEmoji = "<:jonggun_cool:123456789012345678>"; 
-        return message.reply(`Pong! Park Jong Gun vẫn đang online ${myEmoji}`);
+        return message.reply(`Pong! Park Jong Gun vẫn đang online `);
     }
 
     // LỆNH +STATUS
@@ -81,7 +79,7 @@ client.on('messageCreate', async (message) => {
             `Thời gian online: ${uptimeString}`,
             `Bộ nhớ RAM đang dùng: ${memoryUsed} MB`,
             `Số lượng server hỗ trợ: ${client.guilds.cache.size}`,
-            `Trạng thái kết nối: Ổn định`,
+            `Hệ thống âm thanh: Thuần API mã nguồn mở`,
             "----------------------------"
         ].join('\n');
 
@@ -90,21 +88,16 @@ client.on('messageCreate', async (message) => {
 
     // TỰ ĐỘNG TẢI VIDEO
     if (videoRegex.test(message.content)) {
-        if (message.content.includes('spotify.com') || (message.content.includes('youtube.com/watch') && !message.content.includes('shorts'))) return;
+        if (message.content.includes('spotify.com/track') || (message.content.includes('youtube.com/watch') && !message.content.includes('shorts'))) return;
 
         try {
             await message.channel.sendTyping();
-            
             const res = await axios.post('https://api.cobalt.tools/api/json', {
                 url: message.content.match(videoRegex)[0],
                 vQuality: '720',
                 filenamePattern: 'basic'
             }, {
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                },
+                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
                 timeout: 10000
             });
 
@@ -112,13 +105,11 @@ client.on('messageCreate', async (message) => {
                 const file = new AttachmentBuilder(res.data.url, { name: 'video.mp4' });
                 await message.reply({ content: 'Video của bạn:', files: [file] });
             }
-        } catch (e) { 
-            console.error('Lỗi tải video:', e.message); 
-        }
+        } catch (e) { console.error('Lỗi tải video:', e.message); }
     }
 });
 
-// --- 4. HỆ THỐNG PHÁT NHẠC VOICE (KHÔNG PHỤ THUỘC YOUTUBE IP) ---
+// --- 4. HỆ THỐNG PHÁT NHẠC VOICE THUẦN API CHUYÊN DỤNG ---
 client.on('interactionCreate', async (int) => {
     if (!int.isChatInputCommand()) return;
     const { commandName, options, member, guildId } = int;
@@ -131,49 +122,32 @@ client.on('interactionCreate', async (int) => {
 
         const url = options.getString('link');
         
-        // Chặn link YouTube ngay từ đầu
+        // Chặn link YouTube ngay lập tức
         if (url.includes('youtube.com') || url.includes('youtu.be')) {
-            return int.editReply("Xin lỗi các bạn, vì Token Youtube không nhận diện được nên chỉ support Spotify và SoundCloud thôi nhé.");
+            return int.editReply("Xin lỗi các bạn, vì Token Youtube không nhận diện được nên chỉ support Spotify thôi nhé.");
+        }
+
+        if (!url.includes('spotify.com')) {
+            return int.editReply("Vui lòng chỉ sử dụng đường dẫn bài hát từ Spotify.");
         }
 
         try {
-            let queryText = "";
-
-            // XỬ LÝ LINK SPOTIFY VÀ BÓC TÁCH TÊN BÀI HÁT AN TOÀN
-            if (url.includes('spotify.com')) {
-                try {
-                    const response = await axios.get(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`);
-                    if (response.data && response.data.title) {
-                        queryText = `${response.data.title}`;
-                    } else {
-                        queryText = "Chillies Vùng Ký Ức"; // Fallback tên bài hát mẫu nếu API nghẽn
-                    }
-                } catch (err) {
-                    queryText = "Chillies Vùng Ký Ức";
-                }
-            } else {
-                queryText = url; // Link SoundCloud hoặc chuỗi tìm kiếm thường
+            // SỬ DỤNG ENGINE GIẢI MÃ NHẠC SPOTIFY TRỰC TIẾP QUA API DOWNLOAD ĐỘC LẬP
+            // API này tự động bóc liên kết Spotify thành file phát stream nhạc trực tiếp (.mp3) không thông qua YouTube quét IP
+            const encodeUrl = encodeURIComponent(url);
+            const downloadApiUrl = `https://api.spotifydownloader.com/download?link=${encodeUrl}`;
+            
+            const apiResponse = await axios.get(downloadApiUrl, { timeout: 10000 }).catch(() => null);
+            
+            let audioStreamUrl = null;
+            if (apiResponse && apiResponse.data && apiResponse.data.success) {
+                audioStreamUrl = apiResponse.data.link; // Trích xuất link stream mp3 trực tiếp từ server nhạc
             }
 
-            let audioUrl = null;
-            let inputType = null;
-
-            // Tìm kiếm luồng phát trực tiếp qua cổng SoundCloud ẩn
-            try {
-                const searchFallback = await play.search(queryText, { limit: 1, source: { soundcloud: "tracks" } });
-                if (searchFallback.length > 0) {
-                    const fallbackStream = await play.stream(searchFallback[0].url);
-                    audioUrl = fallbackStream.stream;
-                    inputType = fallbackStream.type;
-                }
-            } catch (err) {
-                console.log("Lỗi tìm kiếm SoundCloud ẩn:", err.message);
-            }
-
-            // Nếu không lấy được luồng SoundCloud, dùng Engine tải nhạc tốc độ cao làm phương án dự phòng 2
-            if (!audioUrl) {
-                const trackAudioRes = await axios.post('https://api.cobalt.tools/api/json', {
-                    url: url.includes('spotify.com') ? `https://soundcloud.com/search/sounds?q=${encodeURIComponent(queryText)}` : url,
+            // Phương án dự phòng 2 qua API Cobalt âm thanh tự do nếu API trên bảo trì
+            if (!audioStreamUrl) {
+                const cobaltRes = await axios.post('https://api.cobalt.tools/api/json', {
+                    url: url,
                     downloadMode: 'audio',
                     audioFormat: 'mp3'
                 }, {
@@ -181,15 +155,16 @@ client.on('interactionCreate', async (int) => {
                     timeout: 10000
                 }).catch(() => null);
 
-                if (trackAudioRes?.data?.url) {
-                    audioUrl = trackAudioRes.data.url;
+                if (cobaltRes && cobaltRes.data && cobaltRes.data.url) {
+                    audioStreamUrl = cobaltRes.data.url;
                 }
             }
 
-            if (!audioUrl) {
-                return int.editReply("Hệ thống xử lý luồng nhạc đang bận, vui lòng thử lại bài hát này sau giây lát!");
+            if (!audioStreamUrl) {
+                return int.editReply("Hệ thống giải mã bài hát này đang bận hoặc link không được hỗ trợ, vui lòng thử lại sau giây lát!");
             }
 
+            // Tiến hành kết nối vào Voice Channel Discord
             const connection = joinVoiceChannel({ 
                 channelId: voiceChannel.id, 
                 guildId: guildId, 
@@ -198,8 +173,9 @@ client.on('interactionCreate', async (int) => {
             });
 
             const player = createAudioPlayer();
-            const resource = createAudioResource(audioUrl, {
-                inputType: inputType || undefined,
+            // Nạp trực tiếp luồng URL âm thanh sạch (.mp3) vào Resource phát nhạc
+            const resource = createAudioResource(audioStreamUrl, {
+                inputType: StreamType.Arbitrary,
                 inlineVolume: true
             });
             
@@ -207,10 +183,10 @@ client.on('interactionCreate', async (int) => {
             connection.subscribe(player);
             players.set(guildId, { connection, player });
             
-            await int.editReply(`🎵 Đang phát tại kênh thoại bài hát tìm kiếm từ liên kết của bạn!`);
+            await int.editReply(` Đang giải mã luồng và phát bài hát từ Spotify của bạn!`);
         } catch (e) { 
-            console.error('Lỗi hệ thống âm thanh:', e);
-            await int.editReply("Gặp lỗi trong quá trình xử lý luồng phát nhạc hoặc kết nối quá hạn."); 
+            console.error('Lỗi hệ thống phát nhạc:', e.message);
+            await int.editReply("Gặp lỗi trong quá trình kết nối đến luồng nhạc, vui lòng thử lại bài hát này."); 
         }
     }
 
