@@ -5,8 +5,8 @@ const axios = require('axios');
 const express = require('express');
 require('dotenv').config();
 
-// --- 1. WEB SERVER FIX LỖI 502 BAD GATEWAY (ĐÃ SỬA LỖI TYPO ĐƯỜNG TRUYỀN) ---
-const app = express(); // Sửa từ _express() thành express()
+// --- 1. WEB SERVER FIX LỖI 502 BAD GATEWAY ---
+const app = express(); 
 const PORT = process.env.PORT || 10000; 
 
 app.get('/', (req, res) => {
@@ -34,6 +34,12 @@ const videoRegex = /https?:\/\/(www\.)?(tiktok\.com|youtube\.com|youtu\.be|insta
 client.on('clientReady', async () => {
     console.log(`🚀 Bot Online: ${client.user.tag}`);
     
+    // Đăng ký token miễn phí từ play-dl để tăng tốc kết nối nhạc và tránh lỗi kết nối quá hạn
+    try {
+        await play.getFreeToken();
+        console.log('✅ Đã khởi tạo cấu hình mã thông báo nhạc miễn phí');
+    } catch (e) { console.log('Không thể làm mới token play-dl ẩn danh'); }
+
     const commands = [
         new SlashCommandBuilder()
             .setName('music')
@@ -118,7 +124,7 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// --- 4. HỆ THỐNG PHÁT NHẠC VOICE ---
+// --- 4. HỆ THỐNG PHÁT NHẠC VOICE (XỬ LÝ LUỒNG TRÁNH TIMEOUT BỊ QUÉT IP) ---
 client.on('interactionCreate', async (int) => {
     if (!int.isChatInputCommand()) return;
     const { commandName, options, member, guildId } = int;
@@ -133,12 +139,23 @@ client.on('interactionCreate', async (int) => {
         try {
             let stream;
             if (play.sp_validate(url)) {
+                if (play.is_sp_expired()) {
+                    await play.getFreeToken();
+                }
                 const data = await play.spotify(url);
                 const search = await play.search(`${data.name} ${data.artists[0].name}`, { limit: 1 });
                 if(search.length === 0) return int.editReply("Không tìm thấy bài hát này trên hệ thống.");
-                stream = await play.stream(search[0].url, { quality: 1 });
+                stream = await play.stream(search[0].url, { 
+                    quality: 1,
+                    seek: 0,
+                    htmAgent: null
+                });
             } else if (play.yt_validate(url)) {
-                stream = await play.stream(url, { quality: 1 });
+                stream = await play.stream(url, { 
+                    quality: 1,
+                    seek: 0,
+                    htmAgent: null
+                });
             } else {
                 return int.editReply("Định dạng liên kết chưa được hỗ trợ (Chỉ nhận YouTube/Spotify).");
             }
@@ -151,7 +168,10 @@ client.on('interactionCreate', async (int) => {
             });
 
             const player = createAudioPlayer();
-            const resource = createAudioResource(stream.stream, { inputType: stream.type });
+            const resource = createAudioResource(stream.stream, { 
+                inputType: stream.type,
+                inlineVolume: true
+            });
             
             player.play(resource);
             connection.subscribe(player);
@@ -159,7 +179,12 @@ client.on('interactionCreate', async (int) => {
             
             await int.editReply(`Đang phát tại kênh thoại: ${url}`);
         } catch (e) { 
-            console.error(e);
+            console.error('Lỗi chi tiết phát nhạc:', e);
+            
+            if (e.message && (e.message.includes('429') || e.message.includes('Sign in'))) {
+                return int.editReply("Lỗi: Máy chủ YouTube tạm thời chặn dải IP này của Render (Lỗi 429). Vui lòng thử lại sau vài phút hoặc dùng link từ Spotify.");
+            }
+            
             await int.editReply("Gặp lỗi trong quá trình xử lý luồng phát nhạc hoặc kết nối quá hạn."); 
         }
     }
