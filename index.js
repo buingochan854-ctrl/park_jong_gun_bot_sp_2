@@ -1,5 +1,5 @@
 const { Client, GatewayIntentBits, AttachmentBuilder, SlashCommandBuilder, Routes } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, StreamType } = require('@discordjs/voice');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource } = require('@discordjs/voice');
 const play = require('play-dl');
 const axios = require('axios');
 const express = require('express');
@@ -34,11 +34,17 @@ const videoRegex = /https?:\/\/(www\.)?(tiktok\.com|youtube\.com|youtu\.be|insta
 client.on('clientReady', async () => {
     console.log(`🚀 Bot Online: ${client.user.tag}`);
     
-    // Đăng ký token miễn phí từ play-dl để tăng tốc kết nối nhạc và tránh lỗi kết nối quá hạn
+    // Tự động nạp cấu hình token và xác thực từ file nếu có
     try {
         await play.getFreeToken();
-        console.log('✅ Đã khởi tạo cấu hình mã thông báo nhạc miễn phí');
-    } catch (e) { console.log('Không thể làm mới token play-dl ẩn danh'); }
+        // Kiểm tra xem đã có dữ liệu xác thực chưa để báo log Render
+        const authData = play.is_logged_in();
+        if (authData) {
+            console.log('✅ Đã nạp dữ liệu xác thực YouTube (Cookie) thành công!');
+        } else {
+            console.log('⚠️ Chưa cấu hình Cookie YouTube, có thể bị dính lỗi Sign in trên Render.');
+        }
+    } catch (e) { console.log('Không thể làm mới token ẩn danh:', e.message); }
 
     const commands = [
         new SlashCommandBuilder()
@@ -124,7 +130,7 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// --- 4. HỆ THỐNG PHÁT NHẠC VOICE (XỬ LÝ LUỒNG TRÁNH TIMEOUT BỊ QUÉT IP) ---
+// --- 4. HỆ THỐNG PHÁT NHẠC VOICE ---
 client.on('interactionCreate', async (int) => {
     if (!int.isChatInputCommand()) return;
     const { commandName, options, member, guildId } = int;
@@ -145,6 +151,7 @@ client.on('interactionCreate', async (int) => {
                 const data = await play.spotify(url);
                 const search = await play.search(`${data.name} ${data.artists[0].name}`, { limit: 1 });
                 if(search.length === 0) return int.editReply("Không tìm thấy bài hát này trên hệ thống.");
+                
                 stream = await play.stream(search[0].url, { 
                     quality: 1,
                     seek: 0,
@@ -181,8 +188,9 @@ client.on('interactionCreate', async (int) => {
         } catch (e) { 
             console.error('Lỗi chi tiết phát nhạc:', e);
             
-            if (e.message && (e.message.includes('429') || e.message.includes('Sign in'))) {
-                return int.editReply("Lỗi: Máy chủ YouTube tạm thời chặn dải IP này của Render (Lỗi 429). Vui lòng thử lại sau vài phút hoặc dùng link từ Spotify.");
+            // Xử lý báo lỗi thông minh nếu hệ thống chặn IP hoàn toàn
+            if (e.message && (e.message.includes('bot') || e.message.includes('Sign in') || e.message.includes('429'))) {
+                return int.editReply("Máy chủ YouTube đang chặn dải IP của Render (Yêu cầu xác minh). Hãy thử phát bằng link chia sẻ từ **Spotify** để bot tự động vượt tường lửa bằng API tìm kiếm thay thế.");
             }
             
             await int.editReply("Gặp lỗi trong quá trình xử lý luồng phát nhạc hoặc kết nối quá hạn."); 
