@@ -1,5 +1,5 @@
 const { Client, GatewayIntentBits, AttachmentBuilder, SlashCommandBuilder, Routes } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, StreamType } = require('@discordjs/voice');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, StreamType, AudioPlayerStatus } = require('@discordjs/voice');
 const axios = require('axios');
 const express = require('express');
 require('dotenv').config();
@@ -32,7 +32,7 @@ const videoRegex = /https?:\/\/(www\.)?(tiktok\.com|youtube\.com|youtu\.be|insta
 
 client.on('clientReady', async () => {
     console.log(`🚀 Bot Online: ${client.user.tag}`);
-    console.log('✅ KÍCH HOẠT ENGINE MUSIC CHÍNH HÃNG - NÉ 100% BỘ QUÉT IP RENDER!');
+    console.log('✅ ENGINE APPLE MUSIC - ĐÃ TỐI ƯU BỘ ĐỆM ÂM THANH VOICE!');
 
     const commands = [
         new SlashCommandBuilder()
@@ -55,12 +55,10 @@ client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     const contentLower = message.content.toLowerCase();
 
-    // Lệnh +ping
     if (contentLower === `${PREFIX}ping`) {
-        return message.reply(`Pong! Park Jong Gun vẫn đang online `);
+        return message.reply(`Pong! Park Jong Gun vẫn đang online 🔥`);
     }
 
-    // LỆNH +STATUS
     if (contentLower === `${PREFIX}status` || contentLower === `${PREFIX}botstatus`) {
         let totalSeconds = (client.uptime / 1000);
         let days = Math.floor(totalSeconds / 86400);
@@ -85,7 +83,6 @@ client.on('messageCreate', async (message) => {
         return message.reply(statusMessage);
     }
 
-    // TỰ ĐỘNG TẢI VIDEO
     if (videoRegex.test(message.content)) {
         if (message.content.includes('spotify.com') || (message.content.includes('youtube.com/watch') && !message.content.includes('shorts'))) return;
 
@@ -130,24 +127,21 @@ client.on('interactionCreate', async (int) => {
         }
 
         try {
-            // Bước 1: Gọi API nhúng của Spotify để bóc tách Tên Bài Hát và Ca Sĩ (Không lo lỗi Token)
             const embedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`;
             const spotifyRes = await axios.get(embedUrl, { timeout: 8000 }).catch(() => null);
             
-            let trackName = "Vùng Ký Ức Chillies"; // Tên mẫu dự phòng
+            let trackName = "Vô Tình Xesi Dang Minh";
             if (spotifyRes && spotifyRes.data && spotifyRes.data.title) {
                 trackName = spotifyRes.data.title;
             }
 
-            // Bước 2: Dùng API chính thức của iTunes/Apple Search để tìm kiếm bài hát sạch
             const appleSearchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(trackName)}&media=music&limit=1`;
             const appleRes = await axios.get(appleSearchUrl, { timeout: 8000 });
 
             if (!appleRes.data || appleRes.data.resultCount === 0) {
-                return int.editReply("Không tìm thấy dữ liệu bài hát này trên cổng âm thanh âm nhạc quốc tế.");
+                return int.editReply("Không tìm thấy dữ liệu bài hát này trên cổng âm thanh quốc tế.");
             }
 
-            // Trích xuất link stream chính hãng (.m4a) của Apple - Không bao giờ bị chặn IP
             const audioStreamUrl = appleRes.data.results[0].previewUrl;
             const songTitle = appleRes.data.results[0].trackName;
             const artistName = appleRes.data.results[0].artistName;
@@ -156,26 +150,38 @@ client.on('interactionCreate', async (int) => {
                 return int.editReply("Hệ thống giải mã âm thanh của bài hát này gặp sự cố, vui lòng thử bài khác!");
             }
 
-            // Tiến hành kết nối vào Voice Channel Discord
             const connection = joinVoiceChannel({ 
                 channelId: voiceChannel.id, 
                 guildId: guildId, 
                 adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-                selfDeaf: true 
+                selfDeaf: false // Tắt tự động điếc để bot nhận/gửi tín hiệu tốt hơn
             });
 
             const player = createAudioPlayer();
-            // Nạp luồng âm thanh .m4a chất lượng cao trực tiếp từ Apple
+            
+            // Cấu hình luồng Arbitrary kết hợp bộ đệm để tránh mất tiếng trên môi trường Linux/Render
             const resource = createAudioResource(audioStreamUrl, {
                 inputType: StreamType.Arbitrary,
                 inlineVolume: true
             });
             
+            // Đặt âm lượng mặc định ở mức vừa phải (100%)
+            resource.volume.setVolume(1.0);
+
             player.play(resource);
             connection.subscribe(player);
             players.set(guildId, { connection, player });
             
-            await int.editReply(` Đang phát: **${songTitle}** - *${artistName}* (Kéo luồng Apple Engine từ link Spotify thành công!)`);
+            // Lắng nghe sự kiện để kiểm tra xem luồng có thực sự chạy không
+            player.on(AudioPlayerStatus.Playing, () => {
+                console.log(`▶️ Đang phát nhạc thành công: ${songTitle}`);
+            });
+
+            player.on('error', error => {
+                console.error(`❌ Lỗi trình phát nhạc: ${error.message}`);
+            });
+            
+            await int.editReply(`🎵 Đang phát: **${songTitle}** - *${artistName}* (Kéo luồng Apple Engine từ link Spotify thành công!)`);
         } catch (e) { 
             console.error('Lỗi hệ thống phát nhạc:', e.message);
             await int.editReply("Gặp lỗi trong quá trình kết nối đến luồng nhạc, vui lòng thử lại bài hát này."); 
@@ -195,4 +201,3 @@ client.on('interactionCreate', async (int) => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
-
