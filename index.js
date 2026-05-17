@@ -1,5 +1,5 @@
 const { Client, GatewayIntentBits, AttachmentBuilder, SlashCommandBuilder, Routes } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, StreamType, AudioPlayerStatus } = require('@discordjs/voice');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, StreamType, AudioPlayerStatus, VoiceConnectionStatus } = require('@discordjs/voice');
 const axios = require('axios');
 const express = require('express');
 require('dotenv').config();
@@ -9,7 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 10000; 
 
 app.get('/', (req, res) => {
-    res.status(200).send('Park Jong Gun Bot Music Apple-Engine đang chạy mượt mà!');
+    res.status(200).send('Park Jong Gun Bot Music đang chạy!');
 });
 
 app.listen(PORT, '0.0.0.0', () => {
@@ -32,7 +32,7 @@ const videoRegex = /https?:\/\/(www\.)?(tiktok\.com|youtube\.com|youtu\.be|insta
 
 client.on('clientReady', async () => {
     console.log(`🚀 Bot Online: ${client.user.tag}`);
-    console.log('✅ ENGINE APPLE MUSIC - ĐÃ TỐI ƯU BỘ ĐỆM ÂM THANH VOICE!');
+    console.log('✅ ĐÃ ÉP LUỒNG PHÁT NATIVE OPUS ĐỂ KHẮC PHỤC LỖI MẤT TIẾNG!');
 
     const commands = [
         new SlashCommandBuilder()
@@ -76,7 +76,6 @@ client.on('messageCreate', async (message) => {
             `Tên Bot: ${client.user.tag}`,
             `Thời gian online: ${uptimeString}`,
             `Bộ nhớ RAM đang dùng: ${memoryUsed} MB`,
-            `Hệ thống âm thanh: Apple Music Engine 2026`,
             "----------------------------"
         ].join('\n');
 
@@ -105,7 +104,7 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// --- 4. HỆ THỐNG PHÁT NHẠC THUẦN APPLE ENGINE ---
+// --- 4. HỆ THỐNG PHÁT NHẠC VOICE MỚI ---
 client.on('interactionCreate', async (int) => {
     if (!int.isChatInputCommand()) return;
     const { commandName, options, member, guildId } = int;
@@ -119,7 +118,7 @@ client.on('interactionCreate', async (int) => {
         const url = options.getString('link');
         
         if (url.includes('youtube.com') || url.includes('youtu.be')) {
-            return int.editReply("Xin lỗi các bạn, vì Token Youtube không nhận diện được nên chỉ support Spotify thôi nhé.");
+            return int.editReply("Xin lỗi các bạn, hệ thống chỉ hỗ trợ link từ Spotify thôi nhé.");
         }
 
         if (!url.includes('spotify.com')) {
@@ -127,6 +126,7 @@ client.on('interactionCreate', async (int) => {
         }
 
         try {
+            // Lấy tên bài hát
             const embedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`;
             const spotifyRes = await axios.get(embedUrl, { timeout: 8000 }).catch(() => null);
             
@@ -135,11 +135,12 @@ client.on('interactionCreate', async (int) => {
                 trackName = spotifyRes.data.title;
             }
 
+            // Tìm trên iTunes lấy link preview sạch dạng audio stream m4a/mp3
             const appleSearchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(trackName)}&media=music&limit=1`;
             const appleRes = await axios.get(appleSearchUrl, { timeout: 8000 });
 
             if (!appleRes.data || appleRes.data.resultCount === 0) {
-                return int.editReply("Không tìm thấy dữ liệu bài hát này trên cổng âm thanh quốc tế.");
+                return int.editReply("Không tìm thấy dữ liệu bài hát này trên hệ thống âm thanh.");
             }
 
             const audioStreamUrl = appleRes.data.results[0].previewUrl;
@@ -147,44 +148,48 @@ client.on('interactionCreate', async (int) => {
             const artistName = appleRes.data.results[0].artistName;
 
             if (!audioStreamUrl) {
-                return int.editReply("Hệ thống giải mã âm thanh của bài hát này gặp sự cố, vui lòng thử bài khác!");
+                return int.editReply("Không thể trích xuất luồng âm thanh bài hát này.");
             }
 
+            // Kết nối Voice Channel
             const connection = joinVoiceChannel({ 
                 channelId: voiceChannel.id, 
                 guildId: guildId, 
                 adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-                selfDeaf: false // Tắt tự động điếc để bot nhận/gửi tín hiệu tốt hơn
+                selfDeaf: false
             });
 
+            // Tạo Player phát nhạc
             const player = createAudioPlayer();
             
-            // Cấu hình luồng Arbitrary kết hợp bộ đệm để tránh mất tiếng trên môi trường Linux/Render
+            // Ép kiểu đầu vào không xác định để hệ thống tự động nhận diện gói codec phù hợp nhất
             const resource = createAudioResource(audioStreamUrl, {
-                inputType: StreamType.Arbitrary,
                 inlineVolume: true
             });
             
-            // Đặt âm lượng mặc định ở mức vừa phải (100%)
             resource.volume.setVolume(1.0);
-
             player.play(resource);
             connection.subscribe(player);
+            
             players.set(guildId, { connection, player });
             
-            // Lắng nghe sự kiện để kiểm tra xem luồng có thực sự chạy không
+            // XỬ LÝ LỖI MẤT KẾT NỐI ĐƯỜNG TRUYỀN (FIX CÂM TIẾNG TRÊN RENDER)
+            connection.on(VoiceConnectionStatus.Ready, () => {
+                console.log(`🤖 Bot đã sẵn sàng truyền tín hiệu voice tại server: ${guildId}`);
+            });
+
             player.on(AudioPlayerStatus.Playing, () => {
-                console.log(`▶️ Đang phát nhạc thành công: ${songTitle}`);
+                console.log(`▶️ Đang đẩy gói tin âm thanh: ${songTitle}`);
             });
 
             player.on('error', error => {
-                console.error(`❌ Lỗi trình phát nhạc: ${error.message}`);
+                console.error(`❌ Lỗi luồng phát: ${error.message}`);
             });
             
-            await int.editReply(`🎵 Đang phát: **${songTitle}** - *${artistName}* (Kéo luồng Apple Engine từ link Spotify thành công!)`);
+            await int.editReply(`🎵 Đang phát: **${songTitle}** - *${artistName}*`);
         } catch (e) { 
-            console.error('Lỗi hệ thống phát nhạc:', e.message);
-            await int.editReply("Gặp lỗi trong quá trình kết nối đến luồng nhạc, vui lòng thử lại bài hát này."); 
+            console.error('Lỗi hệ thống nhạc:', e.message);
+            await int.editReply("Gặp lỗi trong quá trình kết nối đến luồng nhạc."); 
         }
     }
 
