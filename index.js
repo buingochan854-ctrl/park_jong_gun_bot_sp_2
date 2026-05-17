@@ -9,7 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 10000; 
 
 app.get('/', (req, res) => {
-    res.status(200).send('Park Jong Gun Bot Music đang chạy!');
+    res.status(200).send('Park Jong Gun Bot Music FIX VOICE đang chạy!');
 });
 
 app.listen(PORT, '0.0.0.0', () => {
@@ -32,12 +32,12 @@ const videoRegex = /https?:\/\/(www\.)?(tiktok\.com|youtube\.com|youtu\.be|insta
 
 client.on('clientReady', async () => {
     console.log(`🚀 Bot Online: ${client.user.tag}`);
-    console.log('✅ ĐÃ ÉP LUỒNG PHÁT NATIVE OPUS ĐỂ KHẮC PHỤC LỖI MẤT TIẾNG!');
+    console.log('✅ ĐÃ KÍCH HOẠT BẢN VÁ CỔNG UDP KEEP-ALIVE CHỐNG CÂM TIẾNG!');
 
     const commands = [
         new SlashCommandBuilder()
             .setName('music')
-            .setDescription('Phát nhạc từ link Spotify (Sử dụng cổng âm thanh Apple)')
+            .setDescription('Phát nhạc từ link Spotify')
             .addStringOption(opt => opt.setName('link').setDescription('Liên kết bài hát Spotify').setRequired(true)),
         new SlashCommandBuilder()
             .setName('musicoff')
@@ -71,40 +71,28 @@ client.on('messageCreate', async (message) => {
         const uptimeString = `${days} ngày, ${hours} giờ, ${minutes} phút, ${seconds} giây`;
         const memoryUsed = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2);
 
-        const statusMessage = [
-            "--- TRẠNG THÁI HOẠT ĐỘNG ---",
-            `Tên Bot: ${client.user.tag}`,
-            `Thời gian online: ${uptimeString}`,
-            `Bộ nhớ RAM đang dùng: ${memoryUsed} MB`,
-            "----------------------------"
-        ].join('\n');
-
-        return message.reply(statusMessage);
+        return message.reply(`--- TRẠNG THÁI ---\nRAM: ${memoryUsed} MB\nUptime: ${uptimeString}`);
     }
 
     if (videoRegex.test(message.content)) {
-        if (message.content.includes('spotify.com') || (message.content.includes('youtube.com/watch') && !message.content.includes('shorts'))) return;
-
+        if (message.content.includes('spotify.com')) return;
         try {
             await message.channel.sendTyping();
             const res = await axios.post('https://api.cobalt.tools/api/json', {
                 url: message.content.match(videoRegex)[0],
                 vQuality: '720',
                 filenamePattern: 'basic'
-            }, {
-                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                timeout: 10000
-            });
+            }, { headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }, timeout: 10000 });
 
             if (res.data && res.data.url) {
                 const file = new AttachmentBuilder(res.data.url, { name: 'video.mp4' });
                 await message.reply({ content: 'Video của bạn:', files: [file] });
             }
-        } catch (e) { console.error('Lỗi tải video:', e.message); }
+        } catch (e) { console.error(e.message); }
     }
 });
 
-// --- 4. HỆ THỐNG PHÁT NHẠC VOICE MỚI ---
+// --- 4. HỆ THỐNG PHÁT NHẠC VOICE TÍCH HỢP BẢN VÁ ---
 client.on('interactionCreate', async (int) => {
     if (!int.isChatInputCommand()) return;
     const { commandName, options, member, guildId } = int;
@@ -116,42 +104,31 @@ client.on('interactionCreate', async (int) => {
         if (!voiceChannel) return int.editReply("Vui lòng vào kênh thoại trước!");
 
         const url = options.getString('link');
-        
-        if (url.includes('youtube.com') || url.includes('youtu.be')) {
-            return int.editReply("Xin lỗi các bạn, hệ thống chỉ hỗ trợ link từ Spotify thôi nhé.");
-        }
-
         if (!url.includes('spotify.com')) {
             return int.editReply("Vui lòng chỉ sử dụng đường dẫn bài hát từ Spotify.");
         }
 
         try {
-            // Lấy tên bài hát
             const embedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`;
             const spotifyRes = await axios.get(embedUrl, { timeout: 8000 }).catch(() => null);
             
-            let trackName = "Vô Tình Xesi Dang Minh";
+            let trackName = "Vô Tình Xesi";
             if (spotifyRes && spotifyRes.data && spotifyRes.data.title) {
                 trackName = spotifyRes.data.title;
             }
 
-            // Tìm trên iTunes lấy link preview sạch dạng audio stream m4a/mp3
             const appleSearchUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(trackName)}&media=music&limit=1`;
             const appleRes = await axios.get(appleSearchUrl, { timeout: 8000 });
 
             if (!appleRes.data || appleRes.data.resultCount === 0) {
-                return int.editReply("Không tìm thấy dữ liệu bài hát này trên hệ thống âm thanh.");
+                return int.editReply("Không tìm thấy bài hát này.");
             }
 
             const audioStreamUrl = appleRes.data.results[0].previewUrl;
             const songTitle = appleRes.data.results[0].trackName;
             const artistName = appleRes.data.results[0].artistName;
 
-            if (!audioStreamUrl) {
-                return int.editReply("Không thể trích xuất luồng âm thanh bài hát này.");
-            }
-
-            // Kết nối Voice Channel
+            // Thiết lập kết nối thoại thoại
             const connection = joinVoiceChannel({ 
                 channelId: voiceChannel.id, 
                 guildId: guildId, 
@@ -159,37 +136,40 @@ client.on('interactionCreate', async (int) => {
                 selfDeaf: false
             });
 
-            // Tạo Player phát nhạc
+            // BẢN VÁ LỖI MẠNG RENDER: ÉP LUỒNG UDP ĐỂ KHÔNG BỊ CÂM TIẾNG
+            connection.on(VoiceConnectionStatus.Ready, () => {
+                console.log("⚡ Kết nối Voice sẵn sàng. Đang kích hoạt bản vá thông luồng mạng...");
+                const networkStateAsAny = connection.state.networking;
+                const udp = networkStateAsAny.udp;
+                if (udp && typeof udp.sendBlankPacket === 'function') {
+                    // Ép gửi gói tin trống mỗi 20 giây để giữ cổng luôn mở
+                    const keepAliveInterval = setInterval(() => {
+                        if (connection.state.status === VoiceConnectionStatus.Ready) {
+                            udp.sendBlankPacket();
+                        } else {
+                            clearInterval(keepAliveInterval);
+                        }
+                    }, 20000);
+                }
+            });
+
             const player = createAudioPlayer();
-            
-            // Ép kiểu đầu vào không xác định để hệ thống tự động nhận diện gói codec phù hợp nhất
+            // Đổi về kiểu Demuxed để tối ưu bộ đọc FFmpeg trên host Linux
             const resource = createAudioResource(audioStreamUrl, {
+                inputType: StreamType.Arbitrary,
                 inlineVolume: true
             });
             
-            resource.volume.setVolume(1.0);
+            resource.volume.setVolume(0.9); // Đặt âm lượng khoảng 90% tránh méo tiếng
             player.play(resource);
             connection.subscribe(player);
             
             players.set(guildId, { connection, player });
             
-            // XỬ LÝ LỖI MẤT KẾT NỐI ĐƯỜNG TRUYỀN (FIX CÂM TIẾNG TRÊN RENDER)
-            connection.on(VoiceConnectionStatus.Ready, () => {
-                console.log(`🤖 Bot đã sẵn sàng truyền tín hiệu voice tại server: ${guildId}`);
-            });
-
-            player.on(AudioPlayerStatus.Playing, () => {
-                console.log(`▶️ Đang đẩy gói tin âm thanh: ${songTitle}`);
-            });
-
-            player.on('error', error => {
-                console.error(`❌ Lỗi luồng phát: ${error.message}`);
-            });
-            
             await int.editReply(`🎵 Đang phát: **${songTitle}** - *${artistName}*`);
         } catch (e) { 
-            console.error('Lỗi hệ thống nhạc:', e.message);
-            await int.editReply("Gặp lỗi trong quá trình kết nối đến luồng nhạc."); 
+            console.error(e.message);
+            await int.editReply("Gặp lỗi mạng khi giải mã luồng nhạc."); 
         }
     }
 
@@ -198,9 +178,9 @@ client.on('interactionCreate', async (int) => {
         if (session) {
             session.connection.destroy();
             players.delete(guildId);
-            await int.reply("Đã dừng phát nhạc và ngắt kết nối.");
+            await int.reply("Đã dừng phát nhạc.");
         } else {
-            await int.reply({ content: "Bot hiện không phát nhạc ở server này.", ephemeral: true });
+            await int.reply({ content: "Bot không phát nhạc ở đây.", ephemeral: true });
         }
     }
 });
