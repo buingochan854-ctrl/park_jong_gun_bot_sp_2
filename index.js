@@ -26,6 +26,7 @@ const videoRegex = /https?:\/\/(www\.)?(tiktok\.com|youtube\.com|youtu\.be|insta
 client.on('clientReady', async () => {
     console.log(`Bot Online: ${client.user.tag}`);
 
+    // Chỉ giữ lại các lệnh quản trị hệ thống Key cho bạn (Xóa bỏ hoàn toàn lệnh getkey)
     const commands = [
         new SlashCommandBuilder()
             .setName('status')
@@ -51,19 +52,56 @@ client.on('clientReady', async () => {
 
     try {
         await client.rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-        console.log('Đã cập nhật xong hệ thống lệnh Slash mới');
+        console.log('Đã cập nhật xong hệ thống lệnh Slash');
     } catch (err) { console.error('Lỗi nạp lệnh Slash:', err); }
 });
 
-// --- 3. TỰ ĐỘNG TẢI VIDEO & LỆNH PREFIX ---
+// --- 3. TỰ ĐỘNG QUÉT TIN NHẮN (TẢI VIDEO & TỰ ĐỘNG TRẢ KEY) ---
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
-    const contentLower = message.content.toLowerCase();
+    
+    const rawContent = message.content.trim();
+    const contentLower = rawContent.toLowerCase();
 
+    // 3.1 Kiểm tra lệnh cơ bản
     if (contentLower === `${PREFIX}ping`) {
-        return message.reply(`Pong! Park Jong Gun vẫn đang online`);
+        return message.reply(`Pong! Park Jong Gun vẫn đang online`).catch(err => console.error(err));
     }
 
+    // 3.2 TỰ ĐỘNG NHẬN DIỆN TÊN KEY KHÔNG CẦN LỆNH
+    // Bot sẽ check xem tin nhắn của user gửi lên có trùng khớp với tên key nào trong Map không
+    if (keyStorage.has(rawContent)) {
+        const keyData = keyStorage.get(rawContent);
+
+        // Trường hợp Key được bạn add là UI Thường
+        if (keyData.type === 'thuong') {
+            return message.reply(`Thông tin key của bạn:\nTên key: ${rawContent}\nGiá trị: \`${keyData.value}\``).catch(err => console.error(err));
+        }
+
+        // Trường hợp Key được bạn add là UI Đẹp
+        if (keyData.type === 'dep') {
+            const embed = new EmbedBuilder()
+                .setTitle('HỆ THỐNG PHÁT KEY BẢN QUYỀN')
+                .setDescription(`Tên Key: **${rawContent}**\nVui lòng chọn thiết bị bạn đang sử dụng bên dưới để tiến hành sao chép Key chỉ với một chạm.`)
+                .setColor('#2b2d31')
+                .setFooter({ text: 'Park Jong Gun Bot điều hành' });
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`copy_mobile_${rawContent}`)
+                    .setLabel('COPY MOBILE')
+                    .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId(`copy_pc_${rawContent}`)
+                    .setLabel('COPY PC')
+                    .setStyle(ButtonStyle.Success)
+            );
+
+            return message.reply({ embeds: [embed], components: [row] }).catch(err => console.error(err));
+        }
+    }
+
+    // 3.3 Tự động bắt link tải video
     if (videoRegex.test(message.content)) {
         if (message.content.includes('spotify.com') || (message.content.includes('youtube.com/watch') && !message.content.includes('shorts'))) return;
         try {
@@ -82,60 +120,33 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// --- 4. XỬ LÝ LỆNH SLASH & HỆ THỐNG NÚT BẤM COPY ---
+// --- 4. XỬ LÝ LỆNH SLASH CHO QUẢN TRỊ VIÊN & INTERACTION NÚT BẤM ---
 client.on('interactionCreate', async (int) => {
-    // 4.1 XỬ LÝ LỆNH SLASH COMMANDS
+    // 4.1 XỬ LÝ LỆNH SLASH
     if (int.isChatInputCommand()) {
         const { commandName, options, user } = int;
 
-        // ĐÃ SỬA: Kiểm tra quyền Owner, nếu sai ID sẽ hiện thông báo theo đúng yêu cầu của bạn
         if (['addkey', 'listkey', 'deletekey'].includes(commandName) && user.id !== OWNER_ID) {
-            return int.reply({ content: 'Bạn không có quyền thêm key!', ephemeral: true });
+            return int.reply({ content: 'Bạn không có quyền thêm key!', ephemeral: true }).catch(err => console.error(err));
         }
 
         if (commandName === 'status') {
             const memoryUsed = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2);
-            await int.reply(`Bot đang hoạt động ổn định! RAM tiêu thụ: ${memoryUsed} MB. Hệ thống âm nhạc đã được tắt nhường chỗ cho Jockie Music`);
+            return int.reply(`Bot đang hoạt động ổn định! RAM tiêu thụ: ${memoryUsed} MB. Hệ thống âm nhạc đã được tắt nhường chỗ cho Jockie Music`).catch(err => console.error(err));
         }
 
-        // LỆNH ADDKEY
         if (commandName === 'addkey') {
-            const name = options.getString('name');
+            const name = options.getString('name').trim();
             const value = options.getString('value');
             const type = options.getString('type');
 
             keyStorage.set(name, { value, type });
-
-            if (type === 'thuong') {
-                return int.reply(`Đã thêm key thành công.\nTên key: ${name}\nGiá trị: \`${value}\``);
-            } 
-            
-            if (type === 'dep') {
-                const embed = new EmbedBuilder()
-                    .setTitle('HỆ THỐNG PHÁT KEY BẢN QUYỀN')
-                    .setDescription(`Tên Key: **${name}**\nVui lòng chọn thiết bị bạn đang sử dụng bên dưới để tiến hành sao chép Key chỉ với một chạm.`)
-                    .setColor('#2b2d31')
-                    .setFooter({ text: 'Park Jong Gun Bot điều hành' });
-
-                const row = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                        .setCustomId(`copy_mobile_${name}`)
-                        .setLabel('COPY MOBILE')
-                        .setStyle(ButtonStyle.Primary),
-                    new ButtonBuilder()
-                        .setCustomId(`copy_pc_${name}`)
-                        .setLabel('COPY PC')
-                        .setStyle(ButtonStyle.Success)
-                );
-
-                return int.reply({ embeds: [embed], components: [row] });
-            }
+            return int.reply({ content: `Đã cấu hình thành công key "${name}" vào cơ sở dữ liệu hệ thống.`, ephemeral: true }).catch(err => console.error(err));
         }
 
-        // LỆNH LISTKEY
         if (commandName === 'listkey') {
             if (keyStorage.size === 0) {
-                return int.reply({ content: 'Hiện tại hệ thống chưa lưu trữ bất kỳ key nào.', ephemeral: true });
+                return int.reply({ content: 'Hiện tại hệ thống chưa lưu trữ bất kỳ key nào.', ephemeral: true }).catch(err => console.error(err));
             }
 
             let listString = '--- DANH SÁCH KEY ĐANG HOẠT ĐỘNG ---\n';
@@ -144,23 +155,22 @@ client.on('interactionCreate', async (int) => {
             });
             listString += '-------------------------------------';
 
-            return int.reply({ content: listString, ephemeral: true });
+            return int.reply({ content: listString, ephemeral: true }).catch(err => console.error(err));
         }
 
-        // LỆNH DELETEKEY
         if (commandName === 'deletekey') {
-            const name = options.getString('name');
+            const name = options.getString('name').trim();
 
             if (!keyStorage.has(name)) {
-                return int.reply({ content: `Không tìm thấy key nào có tên là "${name}" để xóa.`, ephemeral: true });
+                return int.reply({ content: `Không tìm thấy key nào có tên là "${name}" để xóa.`, ephemeral: true }).catch(err => console.error(err));
             }
 
             keyStorage.delete(name);
-            return int.reply({ content: `Đã xóa hoàn toàn key "${name}" ra khỏi hệ thống.`, ephemeral: true });
+            return int.reply({ content: `Đã xóa hoàn toàn key "${name}" ra khỏi hệ thống.`, ephemeral: true }).catch(err => console.error(err));
         }
     }
 
-    // 4.2 XỬ LÝ SỰ KIỆN KHI NGƯỜI DÙNG ẤN NÚT COPY
+    // 4.2 XỬ LÝ SỰ KIỆN NÚT BẤM COPY
     if (int.isButton()) {
         const customId = int.customId;
         
@@ -170,19 +180,13 @@ client.on('interactionCreate', async (int) => {
             const keyData = keyStorage.get(keyName);
 
             if (!keyData) {
-                return int.reply({ content: 'Lỗi: Key này không còn tồn tại hoặc bot vừa được khởi động lại.', ephemeral: true });
+                return int.reply({ content: 'Lỗi: Key này không còn tồn tại hoặc bot vừa được khởi động lại.', ephemeral: true }).catch(err => console.error(err));
             }
 
             if (isMobile) {
-                return int.reply({ 
-                    content: `Dành cho Điện thoại (Bấm giữ hoặc chạm vào khối văn bản dưới đây để sao chép):\n\`\`\`\n${keyData.value}\n\`\`\``, 
-                    ephemeral: true 
-                });
+                return int.reply({ content: `\`${keyData.value}\``, ephemeral: true }).catch(err => console.error(err));
             } else {
-                return int.reply({ 
-                    content: `Dành cho Máy tính (Nhấp đúp chuột để bôi đen nhanh):\n\`${keyData.value}\``, 
-                    ephemeral: true 
-                });
+                return int.reply({ content: `\`\`\`${keyData.value}\`\`\``, ephemeral: true }).catch(err => console.error(err));
             }
         }
     }
