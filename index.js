@@ -23,6 +23,34 @@ const OWNER_ID = "1455796719378895022"; // ID của bạn
 const keyStorage = new Map(); // Nơi lưu trữ Key tạm thời
 const videoRegex = /https?:\/\/(www\.)?(tiktok\.com|youtube\.com|youtu\.be|instagram\.com)\/\S+/i;
 
+// Hàm tính toán độ tương đồng giữa 2 chuỗi (Trả về tỉ lệ % từ 0 đến 100)
+function getSimilarity(str1, str2) {
+    const s1 = str1.toLowerCase().trim();
+    const s2 = str2.toLowerCase().trim();
+    
+    if (s1 === s2) return 100;
+    if (s1.length === 0 || s2.length === 0) return 0;
+
+    const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
+    for (let i = 0; i <= s1.length; i += 1) track[0][i] = i;
+    for (let j = 0; j <= s2.length; j += 1) track[j][0] = j;
+
+    for (let j = 1; j <= s2.length; j += 1) {
+        for (let i = 1; i <= s1.length; i += 1) {
+            const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
+            track[j][i] = Math.min(
+                track[j][i - 1] + 1, // Xóa
+                track[j - 1][i] + 1, // Thêm
+                track[j - 1][i - 1] + indicator // Thay thế
+            );
+        }
+    }
+
+    const distance = track[s2.length][s1.length];
+    const maxLength = Math.max(s1.length, s2.length);
+    return ((maxLength - distance) / maxLength) * 100;
+}
+
 client.on('clientReady', async () => {
     console.log(`Bot Online: ${client.user.tag}`);
 
@@ -55,7 +83,7 @@ client.on('clientReady', async () => {
     } catch (err) { console.error('Lỗi nạp lệnh Slash:', err); }
 });
 
-// --- 3. TỰ ĐỘNG QUÉT TIN NHẮN (TẢI VIDEO & TRẢ KEY THEO UI) ---
+// --- 3. TỰ ĐỘNG QUÉT TIN NHẮN (TẢI VIDEO & THÔNG MINH CHECK KEY) ---
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     
@@ -66,29 +94,42 @@ client.on('messageCreate', async (message) => {
         return message.reply(`Pong! Park Jong Gun vẫn đang online`).catch(err => console.error(err));
     }
 
-    // TỰ ĐỘNG NHẬN DIỆN KEY
-    if (keyStorage.has(rawContent)) {
-        const keyData = keyStorage.get(rawContent);
+    // TỰ ĐỘNG NHẬN DIỆN KEY THÔNG MINH (ĐỘ CHÍNH XÁC >= 80%)
+    let bestMatchKey = null;
+    let highestScore = 0;
+
+    // Quét toàn bộ danh sách key đang có trong bộ nhớ để tìm key có độ tương đồng cao nhất
+    keyStorage.forEach((data, name) => {
+        const score = getSimilarity(rawContent, name);
+        if (score > highestScore) {
+            highestScore = score;
+            bestMatchKey = name;
+        }
+    });
+
+    // Chỉ kích hoạt trả về kết quả khi độ tương đồng đạt từ 80% trở lên
+    if (bestMatchKey && highestScore >= 80) {
+        const keyData = keyStorage.get(bestMatchKey);
 
         // UI THƯỜNG - Text thuần không bọc Embed
         if (keyData.type === 'thuong') {
             return message.reply(`${keyData.value}`).catch(err => console.error(err));
         }
 
-        // UI ĐẸP - Embed và nút bấm đã xóa sạch icon nhưng có dấu đầy đủ
+        // UI ĐẸP - Embed và nút bấm không icon
         if (keyData.type === 'dep') {
             const embed = new EmbedBuilder()
-                .setTitle(`${rawContent}`)
+                .setTitle(`${bestMatchKey}`)
                 .setDescription(`\`\`\`lua\n${keyData.value}\n\`\`\``)
                 .setColor('#2b2d31');
 
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`copy_pc_${rawContent}`)
+                    .setCustomId(`copy_pc_${bestMatchKey}`)
                     .setLabel('COPY PC')
                     .setStyle(ButtonStyle.Success),
                 new ButtonBuilder()
-                    .setCustomId(`copy_mobile_${rawContent}`)
+                    .setCustomId(`copy_mobile_${bestMatchKey}`)
                     .setLabel('COPY MOBILE')
                     .setStyle(ButtonStyle.Primary)
             );
@@ -165,7 +206,7 @@ client.on('interactionCreate', async (int) => {
         }
     }
 
-    // XỬ LÝ CLICK NÚT BẤM COPY (GIỮ NGUYÊN ĐỊNH DẠNG DẤU `)
+    // XỬ LÝ CLICK NÚT BẤM COPY
     if (int.isButton()) {
         const customId = int.customId;
         
@@ -191,4 +232,3 @@ client.on('error', console.error);
 process.on('unhandledRejection', console.error);
 
 client.login(process.env.DISCORD_TOKEN);
-
