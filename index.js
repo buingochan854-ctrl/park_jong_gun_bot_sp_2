@@ -26,7 +26,6 @@ const videoRegex = /https?:\/\/(www\.)?(tiktok\.com|youtube\.com|youtu\.be|insta
 client.on('clientReady', async () => {
     console.log(`Bot Online: ${client.user.tag}`);
 
-    // Chỉ giữ lại các lệnh quản trị hệ thống Key cho bạn (Xóa bỏ hoàn toàn lệnh getkey)
     const commands = [
         new SlashCommandBuilder()
             .setName('status')
@@ -56,52 +55,49 @@ client.on('clientReady', async () => {
     } catch (err) { console.error('Lỗi nạp lệnh Slash:', err); }
 });
 
-// --- 3. TỰ ĐỘNG QUÉT TIN NHẮN (TẢI VIDEO & TỰ ĐỘNG TRẢ KEY) ---
+// --- 3. TỰ ĐỘNG QUÉT TIN NHẮN (TẢI VIDEO & TRẢ KEY THEO UI) ---
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     
     const rawContent = message.content.trim();
     const contentLower = rawContent.toLowerCase();
 
-    // 3.1 Kiểm tra lệnh cơ bản
     if (contentLower === `${PREFIX}ping`) {
         return message.reply(`Pong! Park Jong Gun vẫn đang online`).catch(err => console.error(err));
     }
 
-    // 3.2 TỰ ĐỘNG NHẬN DIỆN TÊN KEY KHÔNG CẦN LỆNH
-    // Bot sẽ check xem tin nhắn của user gửi lên có trùng khớp với tên key nào trong Map không
+    // TỰ ĐỘNG NHẬN DIỆN KEY
     if (keyStorage.has(rawContent)) {
         const keyData = keyStorage.get(rawContent);
 
-        // Trường hợp Key được bạn add là UI Thường
+        // UI THƯỜNG - Text thuần không bọc Embed
         if (keyData.type === 'thuong') {
-            return message.reply(`Thông tin key của bạn:\nTên key: ${rawContent}\nGiá trị: \`${keyData.value}\``).catch(err => console.error(err));
+            return message.reply(`${keyData.value}`).catch(err => console.error(err));
         }
 
-        // Trường hợp Key được bạn add là UI Đẹp
+        // UI ĐẸP - Embed và nút bấm đã xóa sạch icon nhưng có dấu đầy đủ
         if (keyData.type === 'dep') {
             const embed = new EmbedBuilder()
-                .setTitle('HỆ THỐNG PHÁT KEY BẢN QUYỀN')
-                .setDescription(`Tên Key: **${rawContent}**\nVui lòng chọn thiết bị bạn đang sử dụng bên dưới để tiến hành sao chép Key chỉ với một chạm.`)
-                .setColor('#2b2d31')
-                .setFooter({ text: 'Park Jong Gun Bot điều hành' });
+                .setTitle(`${rawContent}`)
+                .setDescription(`\`\`\`lua\n${keyData.value}\n\`\`\``)
+                .setColor('#2b2d31');
 
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`copy_mobile_${rawContent}`)
-                    .setLabel('COPY MOBILE')
-                    .setStyle(ButtonStyle.Primary),
-                new ButtonBuilder()
                     .setCustomId(`copy_pc_${rawContent}`)
                     .setLabel('COPY PC')
-                    .setStyle(ButtonStyle.Success)
+                    .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                    .setCustomId(`copy_mobile_${rawContent}`)
+                    .setLabel('COPY MOBILE')
+                    .setStyle(ButtonStyle.Primary)
             );
 
             return message.reply({ embeds: [embed], components: [row] }).catch(err => console.error(err));
         }
     }
 
-    // 3.3 Tự động bắt link tải video
+    // Tự động bắt link tải video
     if (videoRegex.test(message.content)) {
         if (message.content.includes('spotify.com') || (message.content.includes('youtube.com/watch') && !message.content.includes('shorts'))) return;
         try {
@@ -120,9 +116,8 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// --- 4. XỬ LÝ LỆNH SLASH CHO QUẢN TRỊ VIÊN & INTERACTION NÚT BẤM ---
+// --- 4. XỬ LÝ LỆNH SLASH & SỰ KIỆN NÚT BẤM COPY ---
 client.on('interactionCreate', async (int) => {
-    // 4.1 XỬ LÝ LỆNH SLASH
     if (int.isChatInputCommand()) {
         const { commandName, options, user } = int;
 
@@ -141,7 +136,7 @@ client.on('interactionCreate', async (int) => {
             const type = options.getString('type');
 
             keyStorage.set(name, { value, type });
-            return int.reply({ content: `Đã cấu hình thành công key "${name}" vào cơ sở dữ liệu hệ thống.`, ephemeral: true }).catch(err => console.error(err));
+            return int.reply({ content: `Đã cấu hình thành công key "${name}" vào hệ thống.`, ephemeral: true }).catch(err => console.error(err));
         }
 
         if (commandName === 'listkey') {
@@ -170,7 +165,7 @@ client.on('interactionCreate', async (int) => {
         }
     }
 
-    // 4.2 XỬ LÝ SỰ KIỆN NÚT BẤM COPY
+    // XỬ LÝ CLICK NÚT BẤM COPY (GIỮ NGUYÊN ĐỊNH DẠNG DẤU `)
     if (int.isButton()) {
         const customId = int.customId;
         
@@ -180,7 +175,7 @@ client.on('interactionCreate', async (int) => {
             const keyData = keyStorage.get(keyName);
 
             if (!keyData) {
-                return int.reply({ content: 'Lỗi: Key này không còn tồn tại hoặc bot vừa được khởi động lại.', ephemeral: true }).catch(err => console.error(err));
+                return int.reply({ content: 'Lỗi: Key này không còn tồn tại hoặc bot vừa khởi động lại.', ephemeral: true }).catch(err => console.error(err));
             }
 
             if (isMobile) {
@@ -192,4 +187,8 @@ client.on('interactionCreate', async (int) => {
     }
 });
 
+client.on('error', console.error);
+process.on('unhandledRejection', console.error);
+
 client.login(process.env.DISCORD_TOKEN);
+
