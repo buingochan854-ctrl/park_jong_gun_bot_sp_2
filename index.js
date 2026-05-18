@@ -21,9 +21,11 @@ const client = new Client({
 const PREFIX = "+";
 const OWNER_ID = "1455796719378895022"; // ID của bạn
 const keyStorage = new Map(); // Nơi lưu trữ Key tạm thời
-const videoRegex = /https?:\/\/(www\.)?(tiktok\.com|youtube\.com|youtu\.be|instagram\.com)\/\S+/i;
 
-// Hàm tính toán độ tương đồng giữa 2 chuỗi (Trả về tỉ lệ % từ 0 đến 100)
+// Đã cập nhật RegEx để quét được cả link vt.tiktok.com, v.douyin.com, shorts, v.v.
+const videoRegex = /https?:\/\/(www\.|vt\.|v\.)?(tiktok\.com|youtube\.com|youtu\.be|instagram\.com)\/\S+/i;
+
+// Hàm tính toán độ tương đồng giữa 2 chuỗi
 function getSimilarity(str1, str2) {
     const s1 = str1.toLowerCase().trim();
     const s2 = str2.toLowerCase().trim();
@@ -39,9 +41,9 @@ function getSimilarity(str1, str2) {
         for (let i = 1; i <= s1.length; i += 1) {
             const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
             track[j][i] = Math.min(
-                track[j][i - 1] + 1, // Xóa
-                track[j - 1][i] + 1, // Thêm
-                track[j - 1][i - 1] + indicator // Thay thế
+                track[j][i - 1] + 1,
+                track[j - 1][i] + 1,
+                track[j - 1][i - 1] + indicator
             );
         }
     }
@@ -94,11 +96,10 @@ client.on('messageCreate', async (message) => {
         return message.reply(`Pong! Park Jong Gun vẫn đang online`).catch(err => console.error(err));
     }
 
-    // TỰ ĐỘNG NHẬN DIỆN KEY THÔNG MINH (ĐỘ CHÍNH XÁC >= 80%)
+    // 3.1 TỰ ĐỘNG NHẬN DIỆN KEY THÔNG MINH (ĐỘ CHÍNH XÁC >= 80%)
     let bestMatchKey = null;
     let highestScore = 0;
 
-    // Quét toàn bộ danh sách key đang có trong bộ nhớ để tìm key có độ tương đồng cao nhất
     keyStorage.forEach((data, name) => {
         const score = getSimilarity(rawContent, name);
         if (score > highestScore) {
@@ -107,16 +108,15 @@ client.on('messageCreate', async (message) => {
         }
     });
 
-    // Chỉ kích hoạt trả về kết quả khi độ tương đồng đạt từ 80% trở lên
     if (bestMatchKey && highestScore >= 80) {
         const keyData = keyStorage.get(bestMatchKey);
 
-        // UI THƯỜNG - Text thuần không bọc Embed
+        // UI THƯỜNG
         if (keyData.type === 'thuong') {
             return message.reply(`${keyData.value}`).catch(err => console.error(err));
         }
 
-        // UI ĐẸP - Embed và nút bấm không icon
+        // UI ĐẸP
         if (keyData.type === 'dep') {
             const embed = new EmbedBuilder()
                 .setTitle(`${bestMatchKey}`)
@@ -138,7 +138,7 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // Tự động bắt link tải video
+    // 3.2 TỰ ĐỘNG BẮT LINK TẢI VIDEO (HỖ TRỢ CẢ VT.TIKTOK.COM)
     if (videoRegex.test(message.content)) {
         if (message.content.includes('spotify.com') || (message.content.includes('youtube.com/watch') && !message.content.includes('shorts'))) return;
         try {
@@ -153,7 +153,7 @@ client.on('messageCreate', async (message) => {
                 const file = new AttachmentBuilder(res.data.url, { name: 'video.mp4' });
                 await message.reply({ content: 'Video của bạn đây:', files: [file] });
             }
-        } catch (e) { console.error(e.message); }
+        } catch (e) { console.error('Lỗi tải video:', e.message); }
     }
 });
 
