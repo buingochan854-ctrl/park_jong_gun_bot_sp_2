@@ -18,5 +18,9 @@
   "Kill Hub": {
     "value": "loadstring(game:HttpGet(\"https://api.jnkie.com/api/v1/luascripts/public/5ca430b86a718571e5342b93791f7ac17ef8107f8a93e14efdc76881346857f0/download\"))()",
     "type": "dep"
+  },
+  "Garden Horizone": {
+    "value": "# Garden Horizons Script \n# Script Main Farm \n- Chiyohub\n- Speed hub\n- Cyraa hub \n- Cyrus hub\n- Stree hub\n# Script Kaitun\nKaitun Garden horizone",
+    "type": "thuong"
   }
 }
