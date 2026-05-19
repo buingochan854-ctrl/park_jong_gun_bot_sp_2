@@ -22,5 +22,9 @@
   "Tsb": {
     "value": "# TSB Script \n- Senpai hub\n- Ns hub\n- Star hub\n- Tamhub\n- Forge hub",
     "type": "thuong"
+  },
+  "Senpai Hub": {
+    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Senpai1997/Scripts/refs/heads/main/SenpaihubTheStrongestBattlegroundsAimlockAutoblock.lua\"))()",
+    "type": "dep"
   }
 }
