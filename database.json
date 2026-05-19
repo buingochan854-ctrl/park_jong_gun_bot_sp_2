@@ -34,5 +34,9 @@
   "Ns hub": {
     "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/OhhMyGehlee/TSBG/main/Solara\"))()",
     "type": "dep"
+  },
+  "Star hub": {
+    "value": "loadstring(game:HttpGet(\"https://api.luarmor.net/files/v3/loaders/bc25e1f8ef8aa59092de8f8f4c4fb95c.lua\"))()",
+    "type": "dep"
   }
 }
