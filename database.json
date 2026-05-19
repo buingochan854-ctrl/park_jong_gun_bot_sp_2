@@ -1,2 +1,6 @@
-{}
-
+{
+  "TESTDATAKEY": {
+    "value": "TEST",
+    "type": "dep"
+  }
+}
