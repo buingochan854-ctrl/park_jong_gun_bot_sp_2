@@ -26,5 +26,9 @@
   "Senpai Hub": {
     "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Senpai1997/Scripts/refs/heads/main/SenpaihubTheStrongestBattlegroundsAimlockAutoblock.lua\"))()",
     "type": "dep"
+  },
+  "<@1385119468203544688>": {
+    "value": "Top những người ngu nhất siv<:hihi:1496302207870435338> i",
+    "type": "thuong"
   }
 }
