@@ -10,5 +10,9 @@
   "Titan fishing": {
     "value": "# Titan Fishing \n- Luv Hub\n- Kill Hub\n- Jumanexus Hub\n- Bacon",
     "type": "thuong"
+  },
+  "Luv Hub": {
+    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/LuvHub-Script/LuvHub/main/main/TitanFishing\"))()",
+    "type": "dep"
   }
 }
