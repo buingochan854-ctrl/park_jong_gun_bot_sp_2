@@ -45,7 +45,6 @@ async function syncDatabaseToGitHub() {
         const obj = Object.fromEntries(keyStorage);
         const contentString = JSON.stringify(obj, null, 2);
         
-        // 1. Ghi lại ở local trước để bot dùng ngay
         fs.writeFileSync(DATA_FILE, contentString, 'utf8');
 
         if (!GITHUB_TOKEN || !GITHUB_REPO) {
@@ -61,15 +60,11 @@ async function syncDatabaseToGitHub() {
         };
 
         let sha = null;
-        // Kiểm tra xem file database.json đã tồn tại trên GitHub chưa để lấy mã SHA
         try {
             const checkRes = await axios.get(url, { headers });
             sha = checkRes.data.sha;
-        } catch (err) {
-            // Nếu lỗi 404 nghĩa là file chưa từng tồn tại, ta sẽ tạo mới hoàn toàn nên không cần SHA
-        }
+        } catch (err) {}
 
-        // Tiến hành đẩy file (Push) lên GitHub thông qua API
         await axios.put(url, {
             message: 'Bot tự động cập nhật hệ thống dữ liệu key [Dùng API]',
             content: Buffer.from(contentString).toString('base64'),
@@ -185,7 +180,7 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// --- 4. XỬ LÝ LỆNH SLASH & SỰ KIỆN NÚT BẤM COPY ---
+// --- 4. XỬ LÝ LỆNH SLASH & SỰ KIỆN NÚT BẤM COPY CHỐNG LỖI ---
 client.on('interactionCreate', async (int) => {
     if (int.isChatInputCommand()) {
         const { commandName, options, user } = int;
@@ -204,7 +199,6 @@ client.on('interactionCreate', async (int) => {
             await int.deferReply({ ephemeral: true });
             keyStorage.set(name, { value, type });
             
-            // Đồng bộ trực tiếp lên GitHub Repo
             await syncDatabaseToGitHub();
             return int.editReply({ content: `Đã thêm và sao lưu vĩnh viễn key "${name}" thành công lên GitHub!` });
         }
@@ -227,25 +221,51 @@ client.on('interactionCreate', async (int) => {
             await int.deferReply({ ephemeral: true });
             keyStorage.delete(name);
             
-            // Cập nhật lại file trên GitHub sau khi xóa
             await syncDatabaseToGitHub();
             return int.editReply({ content: `Đã xóa hoàn toàn key "${name}" ra khỏi hệ thống và đồng bộ GitHub.` });
         }
     }
 
+    // NÂNG CẤP XỬ LÝ NÚT BẤM COPY ĐỂ KHÔNG BỊ LỖI ĐỎ
     if (int.isButton()) {
-        const customId = int.customId;
-        if (customId.startsWith('copy_mobile_') || customId.startsWith('copy_pc_')) {
-            const isMobile = customId.startsWith('copy_mobile_');
-            const keyName = isMobile ? customId.replace('copy_mobile_', '') : customId.replace('copy_pc_', '');
-            const keyData = keyStorage.get(keyName);
-            if (!keyData) {
-                return int.reply({ content: 'Lỗi: Key này không còn tồn tại.', ephemeral: true }).catch(err => console.error(err));
+        try {
+            const customId = int.customId;
+            if (customId.startsWith('copy_mobile_') || customId.startsWith('copy_pc_')) {
+                const isMobile = customId.startsWith('copy_mobile_');
+                const keyName = isMobile ? customId.replace('copy_mobile_', '') : customId.replace('copy_pc_', '');
+                
+                const keyData = keyStorage.get(keyName);
+
+                if (!keyData) {
+                    return await int.reply({ content: 'Lỗi: Key này không còn tồn tại trên hệ thống.', ephemeral: true });
+                }
+
+                const scriptContent = keyData.value;
+                const sendContent = isMobile ? `\`${scriptContent}\`` : `\`\`\`lua\n${scriptContent}\n\`\`\``;
+
+                // KIỂM TRA GIỚI HẠN 2000 KÝ TỰ CỦA DISCORD
+                if (sendContent.length > 2000) {
+                    // Nếu quá dài, chuyển thành dạng file tải xuống
+                    const buffer = Buffer.from(scriptContent, 'utf-8');
+                    // Định dạng tên file sạch sẽ, bỏ ký tự đặc biệt
+                    const safeFileName = keyName.replace(/[^a-zA-Z0-9]/g, '_') + '_script.txt';
+                    const file = new AttachmentBuilder(buffer, { name: safeFileName });
+                    
+                    return await int.reply({ 
+                        content: '*LỖI!* **Script quá dài (>2000 ký tự)**\nDiscord không cho phép gửi tin nhắn văn bản quá dài. Bot đã chuyển đổi script thành dạng file. Bạn hãy tải về nhé:', 
+                        files: [file], 
+                        ephemeral: true 
+                    });
+                }
+
+                // Nếu dưới 2000 ký tự, gửi bình thường
+                return await int.reply({ content: sendContent, ephemeral: true });
             }
-            if (isMobile) {
-                return int.reply({ content: `\`${keyData.value}\``, ephemeral: true }).catch(err => console.error(err));
-            } else {
-                return int.reply({ content: `\`\`\`${keyData.value}\`\`\``, ephemeral: true }).catch(err => console.error(err));
+        } catch (error) {
+            console.error('Lỗi khi bấm nút copy:', error);
+            // Phản hồi dự phòng thay vì để hiện chữ đỏ
+            if (!int.replied && !int.deferred) {
+                await int.reply({ content: 'Đã xảy ra lỗi hệ thống khi xử lý nút bấm. Vui lòng báo cho Admin!', ephemeral: true }).catch(console.error);
             }
         }
     }
