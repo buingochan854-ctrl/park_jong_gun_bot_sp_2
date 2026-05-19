@@ -14,5 +14,9 @@
   "Luv Hub": {
     "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/LuvHub-Script/LuvHub/main/main/TitanFishing\"))()",
     "type": "dep"
+  },
+  "Kill Hub": {
+    "value": "loadstring(game:HttpGet(\"https://api.jnkie.com/api/v1/luascripts/public/5ca430b86a718571e5342b93791f7ac17ef8107f8a93e14efdc76881346857f0/download\"))()",
+    "type": "dep"
   }
 }
