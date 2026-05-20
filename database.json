@@ -78,5 +78,9 @@
   "Express hub": {
     "value": "loadstring(game:HttpGet(\"https://api.luarmor.net/files/v3/loaders/d8824b23a4d9f2e0d62b4e69397d206b.lua\"))()",
     "type": "dep"
+  },
+  "Nemesis hub": {
+    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/x2zu/loader/main/freeloader.lua\", true))()",
+    "type": "dep"
   }
 }
