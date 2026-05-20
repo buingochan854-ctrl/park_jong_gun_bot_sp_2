@@ -21,7 +21,7 @@ const client = new Client({
 });
 
 const PREFIX = "+";
-const OWNER_ID = process.env.OWNER_ID; // Lấy hoàn toàn từ Environment để bảo mật
+const OWNER_ID = process.env.OWNER_ID; // Bảo mật an toàn qua Environment của Render
 const DATA_FILE = path.join(__dirname, 'database.json');
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
@@ -91,7 +91,8 @@ function getSimilarity(str1, str2) {
     return ((maxLength - distance) / maxLength) * 100;
 }
 
-client.on('ready', async () => {
+// ĐÃ SỬA THÀNH clientReady ĐỂ KHÔNG BỊ BÁO LỖI WARNING VÀNG TRÊN RENDER
+client.on('clientReady', async () => {
     console.log(`Bot Online: ${client.user.tag}`);
     const commands = [
         new SlashCommandBuilder().setName('status').setDescription('Xem trạng thái hoạt động hiện tại của Bot'),
@@ -151,7 +152,6 @@ client.on('messageCreate', async (message) => {
                 .setDescription(`\`\`\`lua\n${keyData.value}\n\`\`\``)
                 .setColor('#2b2d31');
             
-            // Mã hóa an toàn CustomId bằng cách chuyển đổi ký tự tiếng Việt có dấu thành mã hex hoặc xóa ký tự không hợp lệ
             const safeKeyId = Buffer.from(bestMatchKey).toString('hex').slice(0, 30);
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`copy_pc_${safeKeyId}`).setLabel('COPY PC').setStyle(ButtonStyle.Success),
