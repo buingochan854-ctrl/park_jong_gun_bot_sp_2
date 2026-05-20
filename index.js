@@ -21,7 +21,7 @@ const client = new Client({
     ]
 });
 
-// Khởi tạo Google Gen AI với API Key từ biến môi trường
+// Khởi tạo Google Gen AI chuẩn xác
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const PREFIX = "+";
@@ -31,7 +31,7 @@ const DATA_FILE = path.join(__dirname, 'database.json');
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPO = process.env.GITHUB_REPO;
 
-// Hệ thống lưu trữ Cooldown (Thời gian hồi lệnh) cho lệnh Search
+// Hệ thống lưu trữ Cooldown cho lệnh Search
 const searchCooldowns = new Map();
 
 let keyStorage = new Map();
@@ -162,7 +162,8 @@ client.on('messageCreate', async (message) => {
                 .setDescription(`\`\`\`lua\n${keyData.value}\n\`\`\``)
                 .setColor('#2b2d31');
             
-            const safeKeyId = Buffer.from(bestMatchKey).toString('hex').slice(0, 30);
+            // XÓA BỎ LỆNH SLICE ĐỂ TRANH THIẾU KÝ TỰ HEX KHI TÊN KEY CÓ KHOẢNG TRẮNG HOẶC VIẾT HOA
+            const safeKeyId = Buffer.from(bestMatchKey.toLowerCase().trim()).toString('hex');
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`copy_pc_${safeKeyId}`).setLabel('COPY PC').setStyle(ButtonStyle.Success),
                 new ButtonBuilder().setCustomId(`copy_mobile_${safeKeyId}`).setLabel('COPY MOBILE').setStyle(ButtonStyle.Primary)
@@ -220,14 +221,13 @@ client.on('interactionCreate', async (int) => {
     if (int.isChatInputCommand()) {
         const { commandName, options, user } = int;
         
-        // XỬ LÝ LỆNH TÌM KIẾM AI GEMINI GOOGLE SEARCH
+        // FIX HOÀN TOÀN TÍNH NĂNG GOOGLE AI SEARCH
         if (commandName === 'search') {
             const query = options.getString('query');
             const userId = user.id;
             const now = Date.now();
-            const COOLDOWN_TIME = 10 * 1000; // 10 giây hồi lệnh
+            const COOLDOWN_TIME = 10 * 1000;
 
-            // Kiểm tra Cooldown chống spam chống nghẽn API
             if (searchCooldowns.has(userId)) {
                 const expirationTime = searchCooldowns.get(userId) + COOLDOWN_TIME;
                 if (now < expirationTime) {
@@ -236,10 +236,7 @@ client.on('interactionCreate', async (int) => {
                 }
             }
 
-            // Đặt trạng thái "Bot đang suy nghĩ..." để tránh Discord báo lỗi Timeout quá 3 giây
             await int.deferReply();
-            
-            // Kích hoạt Cooldown cho người dùng này
             searchCooldowns.set(userId, now);
             setTimeout(() => searchCooldowns.delete(userId), COOLDOWN_TIME);
 
@@ -248,18 +245,25 @@ client.on('interactionCreate', async (int) => {
                     return int.editReply({ content: 'Lỗi: Hệ thống chưa cấu hình GEMINI_API_KEY trên môi trường Render.' });
                 }
 
-                // Gọi Gemini AI và kích hoạt công cụ kết nối trực tiếp với công cụ tìm kiếm Google
+                // Cập nhật cấu trúc gọi API chuẩn xác theo tài liệu mới nhất của @google/genai
                 const aiResponse = await ai.models.generateContent({
                     model: 'gemini-1.5-flash',
                     contents: query,
                     config: {
-                        tools: [{ googleSearch: {} }] // Bật tính năng Google Search Grounding để tra cứu mạng
+                        tools: [{ googleSearch: {} }]
                     }
                 });
 
-                const textResult = aiResponse.text;
+                // Xử lý chuỗi văn bản trả về an toàn
+                let textResult = '';
+                if (aiResponse && aiResponse.candidates && aiResponse.candidates[0] && aiResponse.candidates[0].content) {
+                    textResult = aiResponse.candidates[0].content.parts[0].text;
+                } else if (aiResponse && aiResponse.text) {
+                    textResult = aiResponse.text;
+                } else {
+                    textResult = "Không tìm thấy dữ liệu phù hợp từ Google Search.";
+                }
 
-                // Tạo khung hiển thị kết quả Embed chuyên nghiệp
                 const searchEmbed = new EmbedBuilder()
                     .setTitle('Kết quả tìm kiếm từ Google AI')
                     .setDescription(textResult.length > 4000 ? textResult.slice(0, 3990) + '...' : textResult)
@@ -269,12 +273,12 @@ client.on('interactionCreate', async (int) => {
                 return int.editReply({ embeds: [searchEmbed] });
 
             } catch (error) {
-                console.error('Lỗi khi xử lý lệnh tìm kiếm AI:', error);
+                console.error('Lỗi hệ thống AI Gemini:', error);
                 return int.editReply({ content: 'Không thể hoàn thành tìm kiếm lúc này do hệ thống AI bận hoặc gặp lỗi kết nối.' });
             }
         }
 
-        // CÁC LỆNH QUẢN TRỊ CHỈ OWNER MỚI DÙNG ĐƯỢC
+        // CÁC LỆNH QUẢN TRỊ CỦA OWNER
         if (['addkey', 'listkey', 'deletekey', 'changekey'].includes(commandName) && user.id !== OWNER_ID) {
             return int.reply({ content: 'Bạn không có quyền quản lý hệ thống key!', ephemeral: true }).catch(console.error);
         }
@@ -329,6 +333,7 @@ client.on('interactionCreate', async (int) => {
         }
     }
 
+    // FIX HOÀN TOÀN LỖI PHẢN HỒI NÚT BẤM (BUTTON COMPONENT)
     if (int.isButton()) {
         try {
             const customId = int.customId;
@@ -337,17 +342,17 @@ client.on('interactionCreate', async (int) => {
                 const targetId = isMobile ? customId.replace('copy_mobile_', '') : customId.replace('copy_pc_', '');
                 
                 let foundKeyData = null;
-                let realKeyName = "";
                 for (let [name, data] of keyStorage.entries()) {
-                    if (Buffer.from(name).toString('hex').slice(0, 30) === targetId) {
+                    // Chuyển đổi tên key về chữ thường chuẩn để dò tìm chính xác không lệch hoa/thường
+                    const currentHex = Buffer.from(name.toLowerCase().trim()).toString('hex');
+                    if (currentHex === targetId) {
                         foundKeyData = data;
-                        realKeyName = name;
                         break;
                     }
                 }
 
                 if (!foundKeyData) {
-                    return await int.reply({ content: 'Lỗi: Key này không còn tồn tại trên hệ thống hoặc tên quá dài.', ephemeral: true });
+                    return await int.reply({ content: 'Lỗi: Key này không còn tồn tại trên hệ thống hoặc dữ liệu bị lệch cấu trúc.', ephemeral: true });
                 }
 
                 const scriptContent = foundKeyData.value;
@@ -355,16 +360,15 @@ client.on('interactionCreate', async (int) => {
 
                 if (sendContent.length > 2000) {
                     const buffer = Buffer.from(scriptContent, 'utf-8');
-                    const safeFileName = 'script.txt';
-                    const file = new AttachmentBuilder(buffer, { name: safeFileName });
+                    const file = new AttachmentBuilder(buffer, { name: 'script.txt' });
                     return await int.reply({ content: 'Script quá dài (>2000 ký tự). Tải file về tại đây:', files: [file], ephemeral: true });
                 }
 
                 return await int.reply({ content: sendContent, ephemeral: true });
             }
         } catch (error) {
-            console.error('Lỗi nút bấm copy:', error);
-            if (!int.replied) await int.reply({ content: 'Lỗi hệ thống khi xử lý nút bấm.', ephemeral: true }).catch(() => {});
+            console.error('Lỗi tương tác nút bấm copy:', error);
+            if (!int.replied) await int.reply({ content: 'Hệ thống gặp sự cố khi trích xuất dữ liệu key.', ephemeral: true }).catch(() => {});
         }
     }
 });
