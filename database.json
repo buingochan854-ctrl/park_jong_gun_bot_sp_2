@@ -66,5 +66,9 @@
   "CanHongSon Hub": {
     "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/canhongson/CanHongSon/refs/heads/main/loader.lua\"))()",
     "type": "dep"
+  },
+  "Trigon Hub": {
+    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Sindex-Saliii/TrigonEvoHub/refs/heads/main/Main.luau\"))()",
+    "type": "dep"
   }
 }
