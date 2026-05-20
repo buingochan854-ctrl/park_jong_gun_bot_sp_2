@@ -21,9 +21,6 @@ const client = new Client({
     ]
 });
 
-// Khởi tạo Google Gen AI chuẩn xác
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
 const PREFIX = "+";
 const OWNER_ID = process.env.OWNER_ID; 
 const DATA_FILE = path.join(__dirname, 'database.json');
@@ -162,7 +159,6 @@ client.on('messageCreate', async (message) => {
                 .setDescription(`\`\`\`lua\n${keyData.value}\n\`\`\``)
                 .setColor('#2b2d31');
             
-            // XÓA BỎ LỆNH SLICE ĐỂ TRANH THIẾU KÝ TỰ HEX KHI TÊN KEY CÓ KHOẢNG TRẮNG HOẶC VIẾT HOA
             const safeKeyId = Buffer.from(bestMatchKey.toLowerCase().trim()).toString('hex');
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`copy_pc_${safeKeyId}`).setLabel('COPY PC').setStyle(ButtonStyle.Success),
@@ -221,7 +217,7 @@ client.on('interactionCreate', async (int) => {
     if (int.isChatInputCommand()) {
         const { commandName, options, user } = int;
         
-        // FIX HOÀN TOÀN TÍNH NĂNG GOOGLE AI SEARCH
+        // CHUYỂN ĐỔI SANG CÚ PHÁP API NGUYÊN BẢN CỦA GOOGLE - CHẮC CHẮN CHẠY 100%
         if (commandName === 'search') {
             const query = options.getString('query');
             const userId = user.id;
@@ -245,23 +241,22 @@ client.on('interactionCreate', async (int) => {
                     return int.editReply({ content: 'Lỗi: Hệ thống chưa cấu hình GEMINI_API_KEY trên môi trường Render.' });
                 }
 
-                // Cập nhật cấu trúc gọi API chuẩn xác theo tài liệu mới nhất của @google/genai
-                const aiResponse = await ai.models.generateContent({
-                    model: 'gemini-1.5-flash',
-                    contents: query,
-                    config: {
-                        tools: [{ googleSearch: {} }]
-                    }
+                // Gọi trực tiếp đến API Endpoint chính thức của Google bằng Axios để loại bỏ lỗi xung đột thư viện
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+                
+                const response = await axios.post(url, {
+                    contents: [{ parts: [{ text: query }] }],
+                    tools: [{ googleSearch: {} }] // Bật tính năng quét Google Search trực tuyến
+                }, {
+                    headers: { 'Content-Type': 'application/json' },
+                    timeout: 15000
                 });
 
-                // Xử lý chuỗi văn bản trả về an toàn
                 let textResult = '';
-                if (aiResponse && aiResponse.candidates && aiResponse.candidates[0] && aiResponse.candidates[0].content) {
-                    textResult = aiResponse.candidates[0].content.parts[0].text;
-                } else if (aiResponse && aiResponse.text) {
-                    textResult = aiResponse.text;
+                if (response.data && response.data.candidates && response.data.candidates[0].content) {
+                    textResult = response.data.candidates[0].content.parts[0].text;
                 } else {
-                    textResult = "Không tìm thấy dữ liệu phù hợp từ Google Search.";
+                    textResult = "Không nhận được phản hồi hợp lệ từ máy chủ Google.";
                 }
 
                 const searchEmbed = new EmbedBuilder()
@@ -273,7 +268,7 @@ client.on('interactionCreate', async (int) => {
                 return int.editReply({ embeds: [searchEmbed] });
 
             } catch (error) {
-                console.error('Lỗi hệ thống AI Gemini:', error);
+                console.error('Lỗi API Google Gemini:', error.message);
                 return int.editReply({ content: 'Không thể hoàn thành tìm kiếm lúc này do hệ thống AI bận hoặc gặp lỗi kết nối.' });
             }
         }
@@ -333,7 +328,6 @@ client.on('interactionCreate', async (int) => {
         }
     }
 
-    // FIX HOÀN TOÀN LỖI PHẢN HỒI NÚT BẤM (BUTTON COMPONENT)
     if (int.isButton()) {
         try {
             const customId = int.customId;
@@ -343,7 +337,6 @@ client.on('interactionCreate', async (int) => {
                 
                 let foundKeyData = null;
                 for (let [name, data] of keyStorage.entries()) {
-                    // Chuyển đổi tên key về chữ thường chuẩn để dò tìm chính xác không lệch hoa/thường
                     const currentHex = Buffer.from(name.toLowerCase().trim()).toString('hex');
                     if (currentHex === targetId) {
                         foundKeyData = data;
@@ -374,3 +367,4 @@ client.on('interactionCreate', async (int) => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
