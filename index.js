@@ -1,4 +1,5 @@
 const { Client, GatewayIntentBits, AttachmentBuilder, SlashCommandBuilder, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { GoogleGenAI } = require('@google/genai');
 const axios = require('axios');
 const express = require('express');
 const fs = require('fs');
@@ -11,7 +12,7 @@ const PORT = process.env.PORT || 10000;
 app.get('/', (req, res) => res.status(200).send('Park Jong Gun Bot đang chạy'));
 app.listen(PORT, '0.0.0.0', () => console.log(`Web Server định tuyến tại port: ${PORT}`));
 
-// --- 2. CẤU HÌNH BOT & ĐƯỜNG DẪN DATABASE ---
+// --- 2. CẤU HÌNH BOT, AI & DATABASE ---
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -20,12 +21,18 @@ const client = new Client({
     ]
 });
 
+// Khởi tạo Google Gen AI với API Key từ biến môi trường
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
 const PREFIX = "+";
-const OWNER_ID = process.env.OWNER_ID; // Bảo mật an toàn qua Environment của Render
+const OWNER_ID = process.env.OWNER_ID; 
 const DATA_FILE = path.join(__dirname, 'database.json');
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPO = process.env.GITHUB_REPO;
+
+// Hệ thống lưu trữ Cooldown (Thời gian hồi lệnh) cho lệnh Search
+const searchCooldowns = new Map();
 
 let keyStorage = new Map();
 if (fs.existsSync(DATA_FILE)) {
@@ -91,11 +98,14 @@ function getSimilarity(str1, str2) {
     return ((maxLength - distance) / maxLength) * 100;
 }
 
-// ĐÃ SỬA THÀNH clientReady ĐỂ KHÔNG BỊ BÁO LỖI WARNING VÀNG TRÊN RENDER
 client.on('clientReady', async () => {
     console.log(`Bot Online: ${client.user.tag}`);
     const commands = [
         new SlashCommandBuilder().setName('status').setDescription('Xem trạng thái hoạt động hiện tại của Bot'),
+        new SlashCommandBuilder()
+            .setName('search')
+            .setDescription('Tìm kiếm thông tin trên Google bằng trí tuệ nhân tạo AI Gemini')
+            .addStringOption(opt => opt.setName('query').setDescription('Nhập nội dung hoặc câu hỏi bạn cần tìm kiếm').setRequired(true)),
         new SlashCommandBuilder()
             .setName('addkey')
             .setDescription('[Owner] Thêm key bản quyền mới')
@@ -210,6 +220,61 @@ client.on('interactionCreate', async (int) => {
     if (int.isChatInputCommand()) {
         const { commandName, options, user } = int;
         
+        // XỬ LÝ LỆNH TÌM KIẾM AI GEMINI GOOGLE SEARCH
+        if (commandName === 'search') {
+            const query = options.getString('query');
+            const userId = user.id;
+            const now = Date.now();
+            const COOLDOWN_TIME = 10 * 1000; // 10 giây hồi lệnh
+
+            // Kiểm tra Cooldown chống spam chống nghẽn API
+            if (searchCooldowns.has(userId)) {
+                const expirationTime = searchCooldowns.get(userId) + COOLDOWN_TIME;
+                if (now < expirationTime) {
+                    const timeLeft = ((expirationTime - now) / 1000).toFixed(1);
+                    return int.reply({ content: `Vui lòng đợi ${timeLeft} giây để tiếp tục sử dụng lệnh này.`, ephemeral: true }).catch(console.error);
+                }
+            }
+
+            // Đặt trạng thái "Bot đang suy nghĩ..." để tránh Discord báo lỗi Timeout quá 3 giây
+            await int.deferReply();
+            
+            // Kích hoạt Cooldown cho người dùng này
+            searchCooldowns.set(userId, now);
+            setTimeout(() => searchCooldowns.delete(userId), COOLDOWN_TIME);
+
+            try {
+                if (!process.env.GEMINI_API_KEY) {
+                    return int.editReply({ content: 'Lỗi: Hệ thống chưa cấu hình GEMINI_API_KEY trên môi trường Render.' });
+                }
+
+                // Gọi Gemini AI và kích hoạt công cụ kết nối trực tiếp với công cụ tìm kiếm Google
+                const aiResponse = await ai.models.generateContent({
+                    model: 'gemini-1.5-flash',
+                    contents: query,
+                    config: {
+                        tools: [{ googleSearch: {} }] // Bật tính năng Google Search Grounding để tra cứu mạng
+                    }
+                });
+
+                const textResult = aiResponse.text;
+
+                // Tạo khung hiển thị kết quả Embed chuyên nghiệp
+                const searchEmbed = new EmbedBuilder()
+                    .setTitle('Kết quả tìm kiếm từ Google AI')
+                    .setDescription(textResult.length > 4000 ? textResult.slice(0, 3990) + '...' : textResult)
+                    .setColor('#2b2d31')
+                    .setFooter({ text: `Yêu cầu bởi: ${user.username}` });
+
+                return int.editReply({ embeds: [searchEmbed] });
+
+            } catch (error) {
+                console.error('Lỗi khi xử lý lệnh tìm kiếm AI:', error);
+                return int.editReply({ content: 'Không thể hoàn thành tìm kiếm lúc này do hệ thống AI bận hoặc gặp lỗi kết nối.' });
+            }
+        }
+
+        // CÁC LỆNH QUẢN TRỊ CHỈ OWNER MỚI DÙNG ĐƯỢC
         if (['addkey', 'listkey', 'deletekey', 'changekey'].includes(commandName) && user.id !== OWNER_ID) {
             return int.reply({ content: 'Bạn không có quyền quản lý hệ thống key!', ephemeral: true }).catch(console.error);
         }
