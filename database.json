@@ -42,5 +42,9 @@
   "Forge Hub": {
     "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Skzuppy/forge-hub/main/loader.lua\"))()",
     "type": "dep"
+  },
+  "Evade": {
+    "value": "# Evade Script\n- Elderwyrm Hub\n- Modmap\n- Draconic hub",
+    "type": "thuong"
   }
 }
