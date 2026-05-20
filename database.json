@@ -54,5 +54,9 @@
   "Sailor Piece": {
     "value": "# Main Farm\n- Imp Hub\n- Aoenic hub\n- Noname Hub\n- CanHongSon Hub\n- Trigon Hub\n- Omg hub\n- Solix hub\n- Express Hub\n- Nemesis Hub\n- Dead Hub\n# Kaitun\nKaitun Sailor Piece",
     "type": "thuong"
+  },
+  "Imp Hub": {
+    "value": "loadstring(game:HttpGet(\"https://api.luarmor.net/files/v3/loaders/34824c86db1eba5e5e39c7c2d6d7fdfe.lua\"))()",
+    "type": "dep"
   }
 }
