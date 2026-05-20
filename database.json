@@ -79,12 +79,8 @@
     "value": "loadstring(game:HttpGet(\"https://api.luarmor.net/files/v3/loaders/d8824b23a4d9f2e0d62b4e69397d206b.lua\"))()",
     "type": "dep"
   },
-  "Nemesis hub": {
-    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/x2zu/loader/main/freeloader.lua\", true))()",
-    "type": "dep"
-  },
-  "Dead Hub": {
-    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/DeadScripter/Deadhub/refs/heads/main/DeadLoader.lua\"))()",
+  "Kaitun Sailor Piece": {
+    "value": "repeat wait() until game:IsLoaded() getgenv().Hide_UI = false -- if true it off GUI getgenv().LowCPU = true -- Remove All Map Path Boost Fps getgenv().Studio = {     [\"Sailor Piece\"] = {         [\"Lock Fps\"] = 60, -- Lock Fps         [\"Rejoin Time\"] = 15, -- Auto Rejoin         [\"Reroll\"] = {             [\"Clan\"] = { 'Monarch', 'Eminence' }, -- Wiki Tier List             [\"Race\"] = { 'Kitsune' }, -- Wiki Tier List             [\"Trail\"] = { 'Emperor' }, -- Wiki Tier List             [\"Power\"] = { 'Colossus', 'Cursebrand' }, -- Wiki Tier List             [\"Rune\"] = { 'Fortune Rune' } -- Wiki Tier List         }     } } loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Dex-Bear/VxezeHubLoader/refs/heads/main/KaitunFreeSP.lua\"))()",
     "type": "dep"
   }
 }
