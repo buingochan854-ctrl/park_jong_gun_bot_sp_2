@@ -8,7 +8,7 @@ require('dotenv').config();
 // --- 1. WEB SERVER GIỮ BOT ONLINE ---
 const app = express(); 
 const PORT = process.env.PORT || 10000; 
-app.get('/', (req, res) => res.status(200).send('Park Jong Gun Bot đang chạy!'));
+app.get('/', (req, res) => res.status(200).send('Park Jong Gun Bot đang chạy'));
 app.listen(PORT, '0.0.0.0', () => console.log(`Web Server định tuyến tại port: ${PORT}`));
 
 // --- 2. CẤU HÌNH BOT & ĐƯỜNG DẪN DATABASE ---
@@ -21,13 +21,12 @@ const client = new Client({
 });
 
 const PREFIX = "+";
-const OWNER_ID = "1455796719378895022"; // ID của bạn
+const OWNER_ID = process.env.OWNER_ID; // Lấy hoàn toàn từ Environment để bảo mật
 const DATA_FILE = path.join(__dirname, 'database.json');
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GITHUB_REPO = process.env.GITHUB_REPO; // Dạng: username/repo-name
+const GITHUB_REPO = process.env.GITHUB_REPO;
 
-// Tải dữ liệu ban đầu từ file database.json (nếu có)
 let keyStorage = new Map();
 if (fs.existsSync(DATA_FILE)) {
     try {
@@ -37,20 +36,16 @@ if (fs.existsSync(DATA_FILE)) {
     } catch (e) { console.error('Lỗi đọc database cục bộ:', e); }
 }
 
-const videoRegex = /https?:\/\/(www\.|vt\.|v\.)?(tiktok\.com|youtube\.com|youtu\.be|instagram\.com)\/\S+/i;
+const videoRegex = /https?:\/\/(www\.|vt\.|v\.)?(tiktok\.com|youtube\.com|youtu\.be|instagram\.com)\/(shorts\/|reel\/|video\/|\S+)/i;
 
-// Hàm đồng bộ dữ liệu: Ghi file cục bộ đồng thời tự Commit + Push lên GitHub Repo vĩnh viễn
 async function syncDatabaseToGitHub() {
     try {
         const obj = Object.fromEntries(keyStorage);
         const contentString = JSON.stringify(obj, null, 2);
         
-        fs.writeFileSync(DATA_FILE, contentString, 'utf8');
+        await fs.promises.writeFile(DATA_FILE, contentString, 'utf8');
 
-        if (!GITHUB_TOKEN || !GITHUB_REPO) {
-            console.log('Thiếu GITHUB_TOKEN hoặc GITHUB_REPO trong Environment. Không thể đồng bộ lên GitHub.');
-            return;
-        }
+        if (!GITHUB_TOKEN || !GITHUB_REPO) return;
 
         const url = `https://api.github.com/repos/${GITHUB_REPO}/contents/database.json`;
         const headers = {
@@ -66,18 +61,17 @@ async function syncDatabaseToGitHub() {
         } catch (err) {}
 
         await axios.put(url, {
-            message: 'Bot tự động cập nhật hệ thống dữ liệu key [Dùng API]',
+            message: 'Bot tự động cập nhật hệ thống dữ liệu key',
             content: Buffer.from(contentString).toString('base64'),
             sha: sha || undefined
         }, { headers });
 
-        console.log('Đã đồng bộ và lưu trữ dữ liệu vĩnh viễn lên GitHub thành công!');
+        console.log('Đã đồng bộ và lưu trữ dữ liệu vĩnh viễn lên GitHub thành công.');
     } catch (error) {
-        console.error('Lỗi khi thực hiện đồng bộ lên GitHub:', error.response ? error.response.data : error.message);
+        console.error('Lỗi đồng bộ GitHub:', error.message);
     }
 }
 
-// Hàm tính toán độ tương đồng giữa 2 chuỗi
 function getSimilarity(str1, str2) {
     const s1 = str1.toLowerCase().trim();
     const s2 = str2.toLowerCase().trim();
@@ -97,29 +91,29 @@ function getSimilarity(str1, str2) {
     return ((maxLength - distance) / maxLength) * 100;
 }
 
-client.on('clientReady', async () => {
+client.on('ready', async () => {
     console.log(`Bot Online: ${client.user.tag}`);
     const commands = [
-        new SlashCommandBuilder()
-            .setName('status')
-            .setDescription('Xem trạng thái hoạt động hiện tại của Bot'),
+        new SlashCommandBuilder().setName('status').setDescription('Xem trạng thái hoạt động hiện tại của Bot'),
         new SlashCommandBuilder()
             .setName('addkey')
             .setDescription('[Owner] Thêm key bản quyền mới')
             .addStringOption(opt => opt.setName('name').setDescription('Tên của key').setRequired(true))
             .addStringOption(opt => opt.setName('value').setDescription('Giá trị (Script/Chuỗi key)').setRequired(true))
             .addStringOption(opt => opt.setName('type').setDescription('Loại giao diện hiển thị').setRequired(true)
-                .addChoices(
-                    { name: 'UI Đẹp (Có nút bấm copy)', value: 'dep' },
-                    { name: 'UI Thường (Dạng văn bản)', value: 'thuong' }
-                )),
-        new SlashCommandBuilder()
-            .setName('listkey')
-            .setDescription('[Owner] Xem danh sách tất cả các key đang có'),
+                .addChoices({ name: 'UI Đẹp (Có nút bấm copy)', value: 'dep' }, { name: 'UI Thường (Dạng văn bản)', value: 'thuong' })),
+        new SlashCommandBuilder().setName('listkey').setDescription('[Owner] Xem danh sách tất cả các key đang có'),
         new SlashCommandBuilder()
             .setName('deletekey')
             .setDescription('[Owner] Xóa một key bản quyền')
-            .addStringOption(opt => opt.setName('name').setDescription('Tên key cần xóa').setRequired(true))
+            .addStringOption(opt => opt.setName('name').setDescription('Tên key cần xóa').setRequired(true)),
+        new SlashCommandBuilder()
+            .setName('changekey')
+            .setDescription('[Owner] Sửa value một key')
+            .addStringOption(opt => opt.setName('namekey').setDescription('Chọn key cần chỉnh sửa').setRequired(true).setAutocomplete(true))
+            .addStringOption(opt => opt.setName('newvalue').setDescription('Nhập giá trị Script mới').setRequired(true))
+            .addStringOption(opt => opt.setName('type').setDescription('Chọn loại giao diện hiển thị mới').setRequired(true)
+                .addChoices({ name: 'UI Đẹp (Có nút bấm copy)', value: 'dep' }, { name: 'UI Thường (Dạng văn bản)', value: 'thuong' }))
     ];
     try {
         await client.rest.put(Routes.applicationCommands(client.user.id), { body: commands });
@@ -127,12 +121,13 @@ client.on('clientReady', async () => {
     } catch (err) { console.error('Lỗi nạp lệnh Slash:', err); }
 });
 
-// --- 3. TỰ ĐỘNG QUÉT TIN NHẮN (TẢI VIDEO & THÔNG MINH CHECK KEY) ---
+// --- 3. TỰ ĐỘNG QUÉT TIN NHẮN CHÍNH XÁC ---
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     const rawContent = message.content.trim();
+    
     if (rawContent.toLowerCase() === `${PREFIX}ping`) {
-        return message.reply(`Pong! Park Jong Gun vẫn đang online`).catch(err => console.error(err));
+        return message.reply(`Pong! Park Jong Gun vẫn đang online`).catch(console.error);
     }
 
     let bestMatchKey = null;
@@ -148,48 +143,79 @@ client.on('messageCreate', async (message) => {
     if (bestMatchKey && highestScore >= 80) {
         const keyData = keyStorage.get(bestMatchKey);
         if (keyData.type === 'thuong') {
-            return message.reply(`${keyData.value}`).catch(err => console.error(err));
+            return message.reply(`${keyData.value}`).catch(console.error);
         }
         if (keyData.type === 'dep') {
             const embed = new EmbedBuilder()
                 .setTitle(`${bestMatchKey}`)
                 .setDescription(`\`\`\`lua\n${keyData.value}\n\`\`\``)
                 .setColor('#2b2d31');
+            
+            // Mã hóa an toàn CustomId bằng cách chuyển đổi ký tự tiếng Việt có dấu thành mã hex hoặc xóa ký tự không hợp lệ
+            const safeKeyId = Buffer.from(bestMatchKey).toString('hex').slice(0, 30);
             const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`copy_pc_${bestMatchKey}`).setLabel('COPY PC').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId(`copy_mobile_${bestMatchKey}`).setLabel('COPY MOBILE').setStyle(ButtonStyle.Primary)
+                new ButtonBuilder().setCustomId(`copy_pc_${safeKeyId}`).setLabel('COPY PC').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId(`copy_mobile_${safeKeyId}`).setLabel('COPY MOBILE').setStyle(ButtonStyle.Primary)
             );
-            return message.reply({ embeds: [embed], components: [row] }).catch(err => console.error(err));
+            return message.reply({ embeds: [embed], components: [row] }).catch(console.error);
         }
     }
 
     if (videoRegex.test(message.content)) {
         if (message.content.includes('spotify.com') || (message.content.includes('youtube.com/watch') && !message.content.includes('shorts'))) return;
+        
         try {
             await message.channel.sendTyping();
+            const extractedUrl = message.content.match(videoRegex)[0];
+            
             const res = await axios.post('https://api.cobalt.tools/api/json', {
-                url: message.content.match(videoRegex)[0],
+                url: extractedUrl,
                 vQuality: '720',
                 filenamePattern: 'basic'
-            }, { headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }, timeout: 10000 });
+            }, { 
+                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }, 
+                timeout: 12000 
+            });
+
             if (res.data && res.data.url) {
-                const file = new AttachmentBuilder(res.data.url, { name: 'video.mp4' });
-                await message.reply({ content: 'Video của bạn đây:', files: [file] });
+                const videoUrl = res.data.url;
+                const file = new AttachmentBuilder(videoUrl, { name: 'video.mp4' });
+                
+                await message.reply({ content: 'Video của bạn đây:', files: [file] }).catch(async (err) => {
+                    console.log("Discord reject file upload, sending direct link instead.");
+                    await message.reply({ content: `Video dung lượng lớn không thể upload trực tiếp! Bạn có thể bấm vào đây để xem hoặc tải về máy: [Bấm vào để xem](${videoUrl})` });
+                });
+            } else {
+                await message.reply({ content: 'Hệ thống API không trích xuất được link tải cho video này. Vui lòng thử lại sau!' });
             }
-        } catch (e) { console.error('Lỗi tải video:', e.message); }
+        } catch (e) { 
+            console.error('Lỗi tải video:', e.message);
+            await message.reply({ content: `Không thể tải video lúc này! (Lý do: Server API phản hồi chậm hoặc link video bị giới hạn riêng tư).` });
+        }
     }
 });
 
-// --- 4. XỬ LÝ LỆNH SLASH & SỰ KIỆN NÚT BẤM COPY CHỐNG LỖI ---
+// --- 4. INTERACTION HANDLER ---
 client.on('interactionCreate', async (int) => {
+    if (int.isAutocomplete()) {
+        if (int.commandName === 'changekey') {
+            const focusedValue = int.options.getFocused().toLowerCase();
+            const choices = Array.from(keyStorage.keys());
+            const filtered = choices.filter(choice => choice.toLowerCase().includes(focusedValue));
+            await int.respond(filtered.slice(0, 25).map(choice => ({ name: choice, value: choice }))).catch(() => {});
+        }
+        return;
+    }
+
     if (int.isChatInputCommand()) {
         const { commandName, options, user } = int;
-        if (['addkey', 'listkey', 'deletekey'].includes(commandName) && user.id !== OWNER_ID) {
-            return int.reply({ content: 'Bạn không có quyền quản lý hệ thống key!', ephemeral: true }).catch(err => console.error(err));
+        
+        if (['addkey', 'listkey', 'deletekey', 'changekey'].includes(commandName) && user.id !== OWNER_ID) {
+            return int.reply({ content: 'Bạn không có quyền quản lý hệ thống key!', ephemeral: true }).catch(console.error);
         }
         if (commandName === 'status') {
             const memoryUsed = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2);
-            return int.reply(`Bot đang hoạt động ổn định! RAM tiêu thụ: ${memoryUsed} MB. DB đang sử dụng cơ chế đám mây GitHub.`).catch(err => console.error(err));
+            return int.reply(`Bot đang hoạt động ổn định! RAM tiêu thụ: ${memoryUsed} MB. DB đang sử dụng cơ chế đám mây GitHub.`).catch(console.error);
         }
         if (commandName === 'addkey') {
             const name = options.getString('name').trim();
@@ -198,75 +224,82 @@ client.on('interactionCreate', async (int) => {
 
             await int.deferReply({ ephemeral: true });
             keyStorage.set(name, { value, type });
-            
             await syncDatabaseToGitHub();
             return int.editReply({ content: `Đã thêm và sao lưu vĩnh viễn key "${name}" thành công lên GitHub!` });
         }
         if (commandName === 'listkey') {
             if (keyStorage.size === 0) {
-                return int.reply({ content: 'Hiện tại hệ thống chưa lưu trữ bất kỳ key nào.', ephemeral: true }).catch(err => console.error(err));
+                return int.reply({ content: 'Hiện tại hệ thống chưa lưu trữ bất kỳ key nào.', ephemeral: true }).catch(console.error);
             }
             let listString = '--- DANH SÁCH KEY ĐANG HOẠT ĐỘNG ---\n';
             keyStorage.forEach((data, name) => {
                 listString += `• Tên: ${name} | Loại UI: ${data.type === 'dep' ? 'UI Đẹp' : 'UI Thường'}\n`;
             });
             listString += '-------------------------------------';
-            return int.reply({ content: listString, ephemeral: true }).catch(err => console.error(err));
+            return int.reply({ content: listString, ephemeral: true }).catch(console.error);
         }
         if (commandName === 'deletekey') {
             const name = options.getString('name').trim();
             if (!keyStorage.has(name)) {
-                return int.reply({ content: `Không tìm thấy key nào có tên là "${name}" để xóa.`, ephemeral: true }).catch(err => console.error(err));
+                return int.reply({ content: `Không tìm thấy key nào có tên là "${name}" để xóa.`, ephemeral: true }).catch(console.error);
             }
             await int.deferReply({ ephemeral: true });
             keyStorage.delete(name);
-            
             await syncDatabaseToGitHub();
-            return int.editReply({ content: `Đã xóa hoàn toàn key "${name}" ra khỏi hệ thống và đồng bộ GitHub.` });
+            return int.editReply({ content: `Đã xóa hoàn toàn key "${name}" ra khỏi hệ thống.` });
+        }
+        if (commandName === 'changekey') {
+            const namekey = options.getString('namekey').trim();
+            const newvalue = options.getString('newvalue');
+            const type = options.getString('type');
+
+            if (!keyStorage.has(namekey)) {
+                return int.reply({ content: `Không tìm thấy key nào có tên là "${namekey}".`, ephemeral: true }).catch(console.error);
+            }
+
+            await int.deferReply({ ephemeral: true });
+            keyStorage.set(namekey, { value: newvalue, type });
+            await syncDatabaseToGitHub();
+            return int.editReply({ content: `Đã sửa đổi thông tin và đồng bộ vĩnh viễn key "${namekey}" lên GitHub thành công!` });
         }
     }
 
-    // NÂNG CẤP XỬ LÝ NÚT BẤM COPY ĐỂ KHÔNG BỊ LỖI ĐỎ
     if (int.isButton()) {
         try {
             const customId = int.customId;
             if (customId.startsWith('copy_mobile_') || customId.startsWith('copy_pc_')) {
                 const isMobile = customId.startsWith('copy_mobile_');
-                const keyName = isMobile ? customId.replace('copy_mobile_', '') : customId.replace('copy_pc_', '');
+                const targetId = isMobile ? customId.replace('copy_mobile_', '') : customId.replace('copy_pc_', '');
                 
-                const keyData = keyStorage.get(keyName);
-
-                if (!keyData) {
-                    return await int.reply({ content: 'Lỗi: Key này không còn tồn tại trên hệ thống.', ephemeral: true });
+                let foundKeyData = null;
+                let realKeyName = "";
+                for (let [name, data] of keyStorage.entries()) {
+                    if (Buffer.from(name).toString('hex').slice(0, 30) === targetId) {
+                        foundKeyData = data;
+                        realKeyName = name;
+                        break;
+                    }
                 }
 
-                const scriptContent = keyData.value;
-                const sendContent = isMobile ? `\`${scriptContent}\`` : `\`\`\`lua\n${scriptContent}\n\`\`\``;
+                if (!foundKeyData) {
+                    return await int.reply({ content: 'Lỗi: Key này không còn tồn tại trên hệ thống hoặc tên quá dài.', ephemeral: true });
+                }
 
-                // KIỂM TRA GIỚI HẠN 2000 KÝ TỰ CỦA DISCORD
+                const scriptContent = foundKeyData.value;
+                const sendContent = isMobile ? `\`${scriptContent}\`` : `\`\`\`lua\n${scriptContent}\n\`\`\ \``;
+
                 if (sendContent.length > 2000) {
-                    // Nếu quá dài, chuyển thành dạng file tải xuống
                     const buffer = Buffer.from(scriptContent, 'utf-8');
-                    // Định dạng tên file sạch sẽ, bỏ ký tự đặc biệt
-                    const safeFileName = keyName.replace(/[^a-zA-Z0-9]/g, '_') + '_script.txt';
+                    const safeFileName = 'script.txt';
                     const file = new AttachmentBuilder(buffer, { name: safeFileName });
-                    
-                    return await int.reply({ 
-                        content: '*LỖI!* **Script quá dài (>2000 ký tự)**\nDiscord không cho phép gửi tin nhắn văn bản quá dài. Bot đã chuyển đổi script thành dạng file. Bạn hãy tải về nhé:', 
-                        files: [file], 
-                        ephemeral: true 
-                    });
+                    return await int.reply({ content: 'Script quá dài (>2000 ký tự). Tải file về tại đây:', files: [file], ephemeral: true });
                 }
 
-                // Nếu dưới 2000 ký tự, gửi bình thường
                 return await int.reply({ content: sendContent, ephemeral: true });
             }
         } catch (error) {
-            console.error('Lỗi khi bấm nút copy:', error);
-            // Phản hồi dự phòng thay vì để hiện chữ đỏ
-            if (!int.replied && !int.deferred) {
-                await int.reply({ content: 'Đã xảy ra lỗi hệ thống khi xử lý nút bấm. Vui lòng báo cho Admin!', ephemeral: true }).catch(console.error);
-            }
+            console.error('Lỗi nút bấm copy:', error);
+            if (!int.replied) await int.reply({ content: 'Lỗi hệ thống khi xử lý nút bấm.', ephemeral: true }).catch(() => {});
         }
     }
 });
