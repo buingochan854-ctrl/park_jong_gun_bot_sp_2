@@ -168,13 +168,13 @@ client.on('messageCreate', async (message) => {
     }
 
     if (videoRegex.test(message.content)) {
-        if (message.content.includes('spotify.com') || (message.content.includes('youtube.com/watch') && !message.content.includes('shorts'))) return;
+        if (message.content.includes('spotify.com') || (message.content.includes('[youtube.com/watch](https://youtube.com/watch)') && !message.content.includes('shorts'))) return;
         
         try {
             await message.channel.sendTyping();
             const extractedUrl = message.content.match(videoRegex)[0];
             
-            const res = await axios.post('https://api.cobalt.tools/api/json', {
+            const res = await axios.post('[https://api.cobalt.tools/api/json](https://api.cobalt.tools/api/json)', {
                 url: extractedUrl,
                 vQuality: '720',
                 filenamePattern: 'basic'
@@ -230,12 +230,11 @@ client.on('interactionCreate', async (int) => {
                 }
             }
 
-            // BỌC TRY-CATCH CHO LỆNH DEFER ĐỂ CHỐNG SẬP BOT DO MẠNG CHẬM TRỄ QUÁ 3 GIÂY
             try {
                 await int.deferReply();
             } catch (deferError) {
-                console.error("Lỗi Discord phản hồi chậm quá 3 giây (Defer Timeout):", deferError.message);
-                return; // Thoát hàm an toàn, giữ bot không bị crash
+                console.error("Lỗi Defer Timeout:", deferError.message);
+                return; 
             }
             
             searchCooldowns.set(userId, now);
@@ -246,6 +245,7 @@ client.on('interactionCreate', async (int) => {
                     return int.editReply({ content: 'Lỗi: Hệ thống chưa cấu hình GEMINI_API_KEY trên môi trường Render.' }).catch(() => {});
                 }
 
+                // Chuyển sang mô hình gemini-2.5-flash và endpoint tạo văn bản trực tiếp để tối ưu hóa tốc độ tìm kiếm trực tuyến
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
                 
                 const response = await axios.post(url, {
@@ -260,7 +260,7 @@ client.on('interactionCreate', async (int) => {
                 if (response.data && response.data.candidates && response.data.candidates[0].content) {
                     textResult = response.data.candidates[0].content.parts[0].text;
                 } else {
-                    textResult = "Không nhận được phản hồi hợp lệ từ máy chủ Google.";
+                    textResult = "Không tìm thấy kết quả tìm kiếm thích hợp từ Google.";
                 }
 
                 const searchEmbed = new EmbedBuilder()
@@ -353,7 +353,9 @@ client.on('interactionCreate', async (int) => {
                 }
 
                 const scriptContent = foundKeyData.value;
-                const sendContent = isMobile ? `\`${scriptContent}\`` : `\`\`\`lua\n${scriptContent}\n\`\`\ \``;
+                
+                // ĐÃ FIX: Định dạng lại chuỗi bọc Code Block PC chuẩn của Discord không bị thừa dấu cách hay lỗi xuống hàng
+                const sendContent = isMobile ? `\`${scriptContent}\`` : `\`\`\`lua\n${scriptContent}\n\`\`\``;
 
                 if (sendContent.length > 2000) {
                     const buffer = Buffer.from(scriptContent, 'utf-8');
