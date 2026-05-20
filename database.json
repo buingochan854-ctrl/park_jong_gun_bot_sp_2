@@ -46,5 +46,9 @@
   "Elderwyrm Hub": {
     "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Vraigos/Elderwyrm-Hub-X/refs/heads/main/Scripts/Evade/Overhaul.lua\"))()",
     "type": "dep"
+  },
+  "Modmap": {
+    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Catwljzdyh/Scripts/refs/heads/main/loadmap.wljz\"))()",
+    "type": "dep"
   }
 }
