@@ -63,12 +63,12 @@
     "value": "loadstring(game:HttpGet(\"https://api.luarmor.net/files/v3/loaders/cc4273e26a8c95d581c0632de0ac3ba9.lua\"))()",
     "type": "dep"
   },
-  "CanHongSon Hub": {
-    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/canhongson/CanHongSon/refs/heads/main/loader.lua\"))()",
+  "Noname Hub": {
+    "value": "loadstring(game:HttpGet('https://raw.githubusercontent.com/zazazawX/SSS/main/uploads/newupdate.lua'))()",
     "type": "dep"
   },
-  "Trigon Hub": {
-    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Sindex-Saliii/TrigonEvoHub/refs/heads/main/Main.luau\"))()",
+  "Omg Hub": {
+    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Omgshit/Scripts/main/MainLoader.lua\"))()",
     "type": "dep"
   }
 }
