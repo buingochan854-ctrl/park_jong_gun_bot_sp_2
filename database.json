@@ -58,5 +58,9 @@
   "Imp Hub": {
     "value": "loadstring(game:HttpGet(\"https://api.luarmor.net/files/v3/loaders/34824c86db1eba5e5e39c7c2d6d7fdfe.lua\"))()",
     "type": "dep"
+  },
+  "Aoenic hub": {
+    "value": "loadstring(game:HttpGet(\"https://api.luarmor.net/files/v3/loaders/cc4273e26a8c95d581c0632de0ac3ba9.lua\"))()",
+    "type": "dep"
   }
 }
