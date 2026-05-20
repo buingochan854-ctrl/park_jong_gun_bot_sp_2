@@ -43,12 +43,16 @@
     "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Skzuppy/forge-hub/main/loader.lua\"))()",
     "type": "dep"
   },
-  "Evade": {
-    "value": "# Evade Script\n- Elderwyrm Hub\n- Modmap\n- Draconic hub",
-    "type": "thuong"
-  },
-  "Draconic hub": {
-    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Unknownproooolucky/Draconic-Hub-X/refs/heads/main/files/Evade/Overhaul.lua\"))()",
+  "Elderwyrm Hub": {
+    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Vraigos/Elderwyrm-Hub-X/refs/heads/main/Scripts/Evade/Overhaul.lua\"))()",
     "type": "dep"
+  },
+  "Modmap": {
+    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Catwljzdyh/Scripts/refs/heads/main/loadmap.wljz\"))()",
+    "type": "dep"
+  },
+  "Sailor Piece": {
+    "value": "# Main Farm\n- Imp Hub\n- Aoenic hub\n- Noname Hub\n- CanHongSon Hub\n- Trigon Hub\n- Omg hub\n- Solix hub\n- Express Hub\n- Nemesis Hub\n- Dead Hub\n# Kaitun\nKaitun Sailor Piece",
+    "type": "thuong"
   }
 }
