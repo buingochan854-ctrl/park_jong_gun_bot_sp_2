@@ -1,5 +1,4 @@
 const { Client, GatewayIntentBits, AttachmentBuilder, SlashCommandBuilder, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { GoogleGenAI } = require('@google/genai');
 const axios = require('axios');
 const express = require('express');
 const fs = require('fs');
@@ -12,7 +11,7 @@ const PORT = process.env.PORT || 10000;
 app.get('/', (req, res) => res.status(200).send('Park Jong Gun Bot đang chạy'));
 app.listen(PORT, '0.0.0.0', () => console.log(`Web Server định tuyến tại port: ${PORT}`));
 
-// --- 2. CẤU HÌNH BOT, AI & DATABASE ---
+// --- 2. CẤU HÌNH BOT & DATABASE ---
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -217,7 +216,6 @@ client.on('interactionCreate', async (int) => {
     if (int.isChatInputCommand()) {
         const { commandName, options, user } = int;
         
-        // CHUYỂN ĐỔI SANG CÚ PHÁP API NGUYÊN BẢN CỦA GOOGLE - CHẮC CHẮN CHẠY 100%
         if (commandName === 'search') {
             const query = options.getString('query');
             const userId = user.id;
@@ -232,21 +230,27 @@ client.on('interactionCreate', async (int) => {
                 }
             }
 
-            await int.deferReply();
+            // BỌC TRY-CATCH CHO LỆNH DEFER ĐỂ CHỐNG SẬP BOT DO MẠNG CHẬM TRỄ QUÁ 3 GIÂY
+            try {
+                await int.deferReply();
+            } catch (deferError) {
+                console.error("Lỗi Discord phản hồi chậm quá 3 giây (Defer Timeout):", deferError.message);
+                return; // Thoát hàm an toàn, giữ bot không bị crash
+            }
+            
             searchCooldowns.set(userId, now);
             setTimeout(() => searchCooldowns.delete(userId), COOLDOWN_TIME);
 
             try {
                 if (!process.env.GEMINI_API_KEY) {
-                    return int.editReply({ content: 'Lỗi: Hệ thống chưa cấu hình GEMINI_API_KEY trên môi trường Render.' });
+                    return int.editReply({ content: 'Lỗi: Hệ thống chưa cấu hình GEMINI_API_KEY trên môi trường Render.' }).catch(() => {});
                 }
 
-                // Gọi trực tiếp đến API Endpoint chính thức của Google bằng Axios để loại bỏ lỗi xung đột thư viện
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
                 
                 const response = await axios.post(url, {
                     contents: [{ parts: [{ text: query }] }],
-                    tools: [{ googleSearch: {} }] // Bật tính năng quét Google Search trực tuyến
+                    tools: [{ googleSearch: {} }] 
                 }, {
                     headers: { 'Content-Type': 'application/json' },
                     timeout: 15000
@@ -265,11 +269,11 @@ client.on('interactionCreate', async (int) => {
                     .setColor('#2b2d31')
                     .setFooter({ text: `Yêu cầu bởi: ${user.username}` });
 
-                return int.editReply({ embeds: [searchEmbed] });
+                return int.editReply({ embeds: [searchEmbed] }).catch(() => {});
 
             } catch (error) {
                 console.error('Lỗi API Google Gemini:', error.message);
-                return int.editReply({ content: 'Không thể hoàn thành tìm kiếm lúc này do hệ thống AI bận hoặc gặp lỗi kết nối.' });
+                return int.editReply({ content: 'Không thể hoàn thành tìm kiếm lúc này do hệ thống AI bận hoặc gặp lỗi kết nối.' }).catch(() => {});
             }
         }
 
@@ -366,5 +370,12 @@ client.on('interactionCreate', async (int) => {
     }
 });
 
-client.login(process.env.DISCORD_TOKEN);
+// --- 5. BỘ CHẶN LỖI HỆ THỐNG TOÀN CỤC CHỐNG SẬP BOT ---
+process.on('unhandledRejection', error => {
+    console.error('Phát hiện lỗi bất đồng bộ chưa xử lý:', error);
+});
+process.on('uncaughtException', error => {
+    console.error('Phát hiện lỗi ngoại lệ chưa xử lý:', error);
+});
 
+client.login(process.env.DISCORD_TOKEN);
