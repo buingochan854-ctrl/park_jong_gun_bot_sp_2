@@ -94,5 +94,9 @@
   "Script Fly": {
     "value": "Script Fly\n- Fly Gui V3\n- Vehicle Fly Gui",
     "type": "thuong"
+  },
+  "Fly Gui V3": {
+    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/XNEOFF/FlyGuiV3/main/FlyGuiV3.txt\"))()",
+    "type": "dep"
   }
 }
