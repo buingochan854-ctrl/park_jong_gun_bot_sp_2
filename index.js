@@ -1,4 +1,3 @@
-
 const { Client, GatewayIntentBits, AttachmentBuilder, SlashCommandBuilder, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { GoogleGenAI } = require('@google/genai'); 
 const axios = require('axios');
@@ -29,7 +28,6 @@ const DATA_FILE = path.join(__dirname, 'database.json');
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPO = process.env.GITHUB_REPO;
 
-// ĐÃ SỬA: Biến lưu mốc thời gian gọi lệnh cuối cùng của TOÀN SERVER
 let lastSearchTime = 0; 
 
 let keyStorage = new Map();
@@ -42,6 +40,18 @@ if (fs.existsSync(DATA_FILE)) {
 }
 
 const videoRegex = /https?:\/\/(www\.|vt\.|v\.)?(tiktok\.com|youtube\.com|youtu\.be|instagram\.com)\/(shorts\/|reel\/|video\/|\S+)/i;
+
+// Hàm chuyển đổi tiếng Việt có dấu thành không dấu và định dạng chuẩn tên file
+function khongDauFormat(str) {
+    return str
+        .normalize('NFD') // Tách các dấu ra khỏi chữ gốc
+        .replace(/[\u0300-\u036f]/g, '') // Xóa các ký tự dấu
+        .replace(/đ/g, 'd').replace(/Đ/g, 'd') // Thay thế chữ đ/Đ
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '') // Chỉ giữ lại chữ cái, số và khoảng trắng (Xóa ?, !, @, :, v.v...)
+        .trim()
+        .replace(/\s+/g, '_'); // Thay thế khoảng trắng thành dấu gạch dưới _
+}
 
 async function syncDatabaseToGitHub() {
     try {
@@ -221,13 +231,12 @@ client.on('interactionCreate', async (int) => {
         if (commandName === 'search') {
             const query = options.getString('query');
             const now = Date.now();
-            const SERVER_COOLDOWN = 6 * 1000; // Đang đặt 6 giây giãn cách cho toàn server
+            const SERVER_COOLDOWN = 6 * 1000; 
 
-            // ĐÃ SỬA: Logic kiểm tra Cooldown toàn Server hệ thống công bằng
             if (now - lastSearchTime < SERVER_COOLDOWN) {
                 const timeLeft = ((SERVER_COOLDOWN - (now - lastSearchTime)) / 1000).toFixed(1);
                 return int.reply({ 
-                    content: `🤖 Hệ thống AI đang xử lý yêu cầu trước. Vui lòng đợi **${timeLeft} giây** để gọi lượt tiếp theo trên server!`, 
+                    content: `Hệ thống AI đang xử lý yêu cầu trước. Vui lòng đợi **${timeLeft} giây** để gọi lượt tiếp theo trên server!`, 
                     ephemeral: true 
                 }).catch(console.error);
             }
@@ -239,7 +248,6 @@ client.on('interactionCreate', async (int) => {
                 return; 
             }
             
-            // Cập nhật mốc thời gian chạy lệnh mới nhất của server
             lastSearchTime = now;
 
             try {
@@ -261,9 +269,26 @@ client.on('interactionCreate', async (int) => {
                     textResult = "Không nhận được phản hồi văn bản hợp lệ từ máy chủ AI.";
                 }
 
+                if (textResult.length > 1800) {
+                    // ĐÃ SỬA: Xử lý tạo tên file động theo câu hỏi của người dùng
+                    let shortQuery = query.slice(0, 40); // Cắt bớt nếu câu hỏi quá dài để tên file gọn đẹp
+                    let fileFriendlyName = khongDauFormat(shortQuery);
+                    
+                    // Ghép chữ "kq_" vào đầu và đuôi ".txt" vào cuối
+                    let finalFileName = `kq_${fileFriendlyName}.txt`;
+
+                    const textBuffer = Buffer.from(textResult, 'utf-8');
+                    const txtFile = new AttachmentBuilder(textBuffer, { name: finalFileName });
+                    
+                    return int.editReply({ 
+                        content: `📝 **Câu trả lời vượt quá giới hạn hiển thị của Discord (${textResult.length} ký tự).** Toàn bộ nội dung chi tiết đã được tự động xuất ra file văn bản chuẩn dưới đây:`, 
+                        files: [txtFile] 
+                    }).catch(() => {});
+                }
+
                 const searchEmbed = new EmbedBuilder()
                     .setTitle('Kết quả giải đáp từ AI')
-                    .setDescription(textResult.length > 4000 ? textResult.slice(0, 3990) + '...' : textResult)
+                    .setDescription(textResult)
                     .setColor('#2b2d31')
                     .setFooter({ text: `Yêu cầu bởi: ${user.username}` });
 
@@ -376,3 +401,4 @@ process.on('uncaughtException', error => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
