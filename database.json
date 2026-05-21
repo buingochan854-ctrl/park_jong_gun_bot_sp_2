@@ -118,5 +118,9 @@
   "CanHongSon Hub": {
     "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/canhongson/CanHongSon/refs/heads/main/loader.lua\"))()",
     "type": "dep"
+  },
+  "Survive Zombie Arena": {
+    "value": "# Survive zombie arena Script List:\n- Foxname Hub",
+    "type": "thuong"
   }
 }
