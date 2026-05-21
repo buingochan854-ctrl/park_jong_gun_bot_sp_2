@@ -1,5 +1,6 @@
+
 const { Client, GatewayIntentBits, AttachmentBuilder, SlashCommandBuilder, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { GoogleGenAI } = require('@google/genai'); // Chuyển sang dùng SDK chính thức để chống lỗi kết nối
+const { GoogleGenAI } = require('@google/genai'); // Sử dụng SDK chính thức của Google chống lỗi kết nối
 const axios = require('axios');
 const express = require('express');
 const fs = require('fs');
@@ -245,10 +246,10 @@ client.on('interactionCreate', async (int) => {
                     return int.editReply({ content: 'Lỗi: Hệ thống chưa cấu hình GEMINI_API_KEY trên môi trường Render.' }).catch(() => {});
                 }
 
-                // Khởi tạo thực thể SDK Google AI chính thống
+                // Cấu hình khởi tạo SDK Google AI chính thức
                 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
                 
-                // Gọi mô hình ổn định nhất qua SDK chính thức
+                // Gọi mô hình thế hệ mới qua SDK bảo mật
                 const response = await ai.models.generateContent({
                     model: 'gemini-2.5-flash',
                     contents: query,
@@ -270,6 +271,7 @@ client.on('interactionCreate', async (int) => {
                 return int.editReply({ embeds: [searchEmbed] }).catch(() => {});
 
             } catch (error) {
+                // Xuất log chi tiết của SDK ra màn hình Render nếu gặp lỗi tài khoản hoặc hết tiền
                 console.error('Lỗi SDK Google Gemini:', error);
                 return int.editReply({ content: 'Không thể hoàn thành tìm kiếm lúc này do hệ thống AI bận hoặc gặp lỗi kết nối.' }).catch(() => {});
             }
