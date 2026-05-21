@@ -122,5 +122,9 @@
   "Survive Zombie Arena": {
     "value": "# Survive zombie arena Script List:\n- Foxname Hub",
     "type": "thuong"
+  },
+  "Foxname Hub": {
+    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/ronnei/Ronnie.HTK/refs/heads/main/FoxName-nokey\"))()\nKey Script : \nHTK.RonneiKey_cd5847ba430e9f2e5807ed95125cb243",
+    "type": "dep"
   }
 }
