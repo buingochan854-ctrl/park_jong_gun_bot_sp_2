@@ -114,5 +114,9 @@
   "ê": {
     "value": "{user} ê cái qq ko ai rep đâu <:emoji_18:1483831675556462752>",
     "type": "thuong"
+  },
+  "CanHongSon Hub": {
+    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/canhongson/CanHongSon/refs/heads/main/loader.lua\"))()",
+    "type": "dep"
   }
 }
