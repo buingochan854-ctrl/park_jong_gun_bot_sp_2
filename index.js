@@ -27,7 +27,6 @@ const DATA_FILE = path.join(__dirname, 'database.json');
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPO = process.env.GITHUB_REPO;
 
-// Hệ thống lưu trữ Cooldown cho lệnh Search
 const searchCooldowns = new Map();
 
 let keyStorage = new Map();
@@ -100,7 +99,7 @@ client.on('clientReady', async () => {
         new SlashCommandBuilder().setName('status').setDescription('Xem trạng thái hoạt động hiện tại của Bot'),
         new SlashCommandBuilder()
             .setName('search')
-            .setDescription('Tìm kiếm thông tin trên Google bằng trí tuệ nhân tạo AI Gemini')
+            .setDescription('Tìm kiếm thông tin bằng trí tuệ nhân tạo AI Gemini')
             .addStringOption(opt => opt.setName('query').setDescription('Nhập nội dung hoặc câu hỏi bạn cần tìm kiếm').setRequired(true)),
         new SlashCommandBuilder()
             .setName('addkey')
@@ -168,13 +167,13 @@ client.on('messageCreate', async (message) => {
     }
 
     if (videoRegex.test(message.content)) {
-        if (message.content.includes('spotify.com') || (message.content.includes('[youtube.com/watch](https://youtube.com/watch)') && !message.content.includes('shorts'))) return;
+        if (message.content.includes('spotify.com') || (message.content.includes('youtube.com/watch') && !message.content.includes('shorts'))) return;
         
         try {
             await message.channel.sendTyping();
             const extractedUrl = message.content.match(videoRegex)[0];
             
-            const res = await axios.post('[https://api.cobalt.tools/api/json](https://api.cobalt.tools/api/json)', {
+            const res = await axios.post('https://api.cobalt.tools/api/json', {
                 url: extractedUrl,
                 vQuality: '720',
                 filenamePattern: 'basic'
@@ -245,12 +244,11 @@ client.on('interactionCreate', async (int) => {
                     return int.editReply({ content: 'Lỗi: Hệ thống chưa cấu hình GEMINI_API_KEY trên môi trường Render.' }).catch(() => {});
                 }
 
-                // Chuyển sang mô hình gemini-2.5-flash và endpoint tạo văn bản trực tiếp để tối ưu hóa tốc độ tìm kiếm trực tuyến
+                // Cấu trúc API siêu sạch, loại bỏ tool bổ trợ tránh xung đột mạng kết nối giữa Render và Google
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
                 
                 const response = await axios.post(url, {
-                    contents: [{ parts: [{ text: query }] }],
-                    tools: [{ googleSearch: {} }] 
+                    contents: [{ parts: [{ text: query }] }]
                 }, {
                     headers: { 'Content-Type': 'application/json' },
                     timeout: 15000
@@ -260,11 +258,11 @@ client.on('interactionCreate', async (int) => {
                 if (response.data && response.data.candidates && response.data.candidates[0].content) {
                     textResult = response.data.candidates[0].content.parts[0].text;
                 } else {
-                    textResult = "Không tìm thấy kết quả tìm kiếm thích hợp từ Google.";
+                    textResult = "Không nhận được phản hồi văn bản hợp lệ từ máy chủ AI.";
                 }
 
                 const searchEmbed = new EmbedBuilder()
-                    .setTitle('Kết quả tìm kiếm từ Google AI')
+                    .setTitle('Kết quả giải đáp từ AI')
                     .setDescription(textResult.length > 4000 ? textResult.slice(0, 3990) + '...' : textResult)
                     .setColor('#2b2d31')
                     .setFooter({ text: `Yêu cầu bởi: ${user.username}` });
@@ -272,7 +270,12 @@ client.on('interactionCreate', async (int) => {
                 return int.editReply({ embeds: [searchEmbed] }).catch(() => {});
 
             } catch (error) {
-                console.error('Lỗi API Google Gemini:', error.message);
+                // In chi tiết phản hồi lỗi của Google ra tab log Render để bạn kiểm tra tài khoản
+                if (error.response && error.response.data) {
+                    console.error('Chi tiết lỗi trả về từ Google API:', JSON.stringify(error.response.data));
+                } else {
+                    console.error('Lỗi mạng API:', error.message);
+                }
                 return int.editReply({ content: 'Không thể hoàn thành tìm kiếm lúc này do hệ thống AI bận hoặc gặp lỗi kết nối.' }).catch(() => {});
             }
         }
@@ -353,8 +356,6 @@ client.on('interactionCreate', async (int) => {
                 }
 
                 const scriptContent = foundKeyData.value;
-                
-                // ĐÃ FIX: Định dạng lại chuỗi bọc Code Block PC chuẩn của Discord không bị thừa dấu cách hay lỗi xuống hàng
                 const sendContent = isMobile ? `\`${scriptContent}\`` : `\`\`\`lua\n${scriptContent}\n\`\`\``;
 
                 if (sendContent.length > 2000) {
@@ -372,7 +373,6 @@ client.on('interactionCreate', async (int) => {
     }
 });
 
-// --- 5. BỘ CHẶN LỖI HỆ THỐNG TOÀN CỤC CHỐNG SẬP BOT ---
 process.on('unhandledRejection', error => {
     console.error('Phát hiện lỗi bất đồng bộ chưa xử lý:', error);
 });
