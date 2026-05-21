@@ -244,8 +244,8 @@ client.on('interactionCreate', async (int) => {
                     return int.editReply({ content: 'Lỗi: Hệ thống chưa cấu hình GEMINI_API_KEY trên môi trường Render.' }).catch(() => {});
                 }
 
-                // Cấu trúc API siêu sạch, loại bỏ tool bổ trợ tránh xung đột mạng kết nối giữa Render và Google
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+                // ĐÃ SỬA: Cập nhật lên model gemini-2.5-flash và endpoint v1beta chuẩn xác
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
                 
                 const response = await axios.post(url, {
                     contents: [{ parts: [{ text: query }] }]
@@ -270,7 +270,6 @@ client.on('interactionCreate', async (int) => {
                 return int.editReply({ embeds: [searchEmbed] }).catch(() => {});
 
             } catch (error) {
-                // In chi tiết phản hồi lỗi của Google ra tab log Render để bạn kiểm tra tài khoản
                 if (error.response && error.response.data) {
                     console.error('Chi tiết lỗi trả về từ Google API:', JSON.stringify(error.response.data));
                 } else {
@@ -381,3 +380,4 @@ process.on('uncaughtException', error => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
