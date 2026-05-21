@@ -1,4 +1,5 @@
 const { Client, GatewayIntentBits, AttachmentBuilder, SlashCommandBuilder, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { GoogleGenAI } = require('@google/genai'); // Chuyển sang dùng SDK chính thức để chống lỗi kết nối
 const axios = require('axios');
 const express = require('express');
 const fs = require('fs');
@@ -244,19 +245,18 @@ client.on('interactionCreate', async (int) => {
                     return int.editReply({ content: 'Lỗi: Hệ thống chưa cấu hình GEMINI_API_KEY trên môi trường Render.' }).catch(() => {});
                 }
 
-                // ĐÃ SỬA: Cập nhật lên model gemini-2.5-flash và endpoint v1beta chuẩn xác
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+                // Khởi tạo thực thể SDK Google AI chính thống
+                const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
                 
-                const response = await axios.post(url, {
-                    contents: [{ parts: [{ text: query }] }]
-                }, {
-                    headers: { 'Content-Type': 'application/json' },
-                    timeout: 15000
+                // Gọi mô hình ổn định nhất qua SDK chính thức
+                const response = await ai.models.generateContent({
+                    model: 'gemini-2.5-flash',
+                    contents: query,
                 });
 
                 let textResult = '';
-                if (response.data && response.data.candidates && response.data.candidates[0].content) {
-                    textResult = response.data.candidates[0].content.parts[0].text;
+                if (response && response.text) {
+                    textResult = response.text;
                 } else {
                     textResult = "Không nhận được phản hồi văn bản hợp lệ từ máy chủ AI.";
                 }
@@ -270,11 +270,7 @@ client.on('interactionCreate', async (int) => {
                 return int.editReply({ embeds: [searchEmbed] }).catch(() => {});
 
             } catch (error) {
-                if (error.response && error.response.data) {
-                    console.error('Chi tiết lỗi trả về từ Google API:', JSON.stringify(error.response.data));
-                } else {
-                    console.error('Lỗi mạng API:', error.message);
-                }
+                console.error('Lỗi SDK Google Gemini:', error);
                 return int.editReply({ content: 'Không thể hoàn thành tìm kiếm lúc này do hệ thống AI bận hoặc gặp lỗi kết nối.' }).catch(() => {});
             }
         }
@@ -380,4 +376,3 @@ process.on('uncaughtException', error => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
-
