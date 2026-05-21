@@ -112,8 +112,8 @@
     "type": "thuong"
   },
   "ê": {
-    "value": "ê cái qq ko ai rep đâu<:emoji_18:1483831675556462752>",
-    "type": "dep"
+    "value": "ê cái qq m ko",
+    "type": "thuong"
   },
   "CanHongSon Hub": {
     "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/canhongson/CanHongSon/refs/heads/main/loader.lua\"))()",
