@@ -1,6 +1,6 @@
 
 const { Client, GatewayIntentBits, AttachmentBuilder, SlashCommandBuilder, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { GoogleGenAI } = require('@google/genai'); // Sử dụng SDK chính thức của Google chống lỗi kết nối
+const { GoogleGenAI } = require('@google/genai'); 
 const axios = require('axios');
 const express = require('express');
 const fs = require('fs');
@@ -29,7 +29,8 @@ const DATA_FILE = path.join(__dirname, 'database.json');
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPO = process.env.GITHUB_REPO;
 
-const searchCooldowns = new Map();
+// ĐÃ SỬA: Biến lưu mốc thời gian gọi lệnh cuối cùng của TOÀN SERVER
+let lastSearchTime = 0; 
 
 let keyStorage = new Map();
 if (fs.existsSync(DATA_FILE)) {
@@ -219,16 +220,16 @@ client.on('interactionCreate', async (int) => {
         
         if (commandName === 'search') {
             const query = options.getString('query');
-            const userId = user.id;
             const now = Date.now();
-            const COOLDOWN_TIME = 10 * 1000;
+            const SERVER_COOLDOWN = 6 * 1000; // Đang đặt 6 giây giãn cách cho toàn server
 
-            if (searchCooldowns.has(userId)) {
-                const expirationTime = searchCooldowns.get(userId) + COOLDOWN_TIME;
-                if (now < expirationTime) {
-                    const timeLeft = ((expirationTime - now) / 1000).toFixed(1);
-                    return int.reply({ content: `Vui lòng đợi ${timeLeft} giây để tiếp tục sử dụng lệnh này.`, ephemeral: true }).catch(console.error);
-                }
+            // ĐÃ SỬA: Logic kiểm tra Cooldown toàn Server hệ thống công bằng
+            if (now - lastSearchTime < SERVER_COOLDOWN) {
+                const timeLeft = ((SERVER_COOLDOWN - (now - lastSearchTime)) / 1000).toFixed(1);
+                return int.reply({ 
+                    content: `🤖 Hệ thống AI đang xử lý yêu cầu trước. Vui lòng đợi **${timeLeft} giây** để gọi lượt tiếp theo trên server!`, 
+                    ephemeral: true 
+                }).catch(console.error);
             }
 
             try {
@@ -238,18 +239,16 @@ client.on('interactionCreate', async (int) => {
                 return; 
             }
             
-            searchCooldowns.set(userId, now);
-            setTimeout(() => searchCooldowns.delete(userId), COOLDOWN_TIME);
+            // Cập nhật mốc thời gian chạy lệnh mới nhất của server
+            lastSearchTime = now;
 
             try {
                 if (!process.env.GEMINI_API_KEY) {
                     return int.editReply({ content: 'Lỗi: Hệ thống chưa cấu hình GEMINI_API_KEY trên môi trường Render.' }).catch(() => {});
                 }
 
-                // Cấu hình khởi tạo SDK Google AI chính thức
                 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
                 
-                // Gọi mô hình thế hệ mới qua SDK bảo mật
                 const response = await ai.models.generateContent({
                     model: 'gemini-2.5-flash',
                     contents: query,
@@ -271,7 +270,6 @@ client.on('interactionCreate', async (int) => {
                 return int.editReply({ embeds: [searchEmbed] }).catch(() => {});
 
             } catch (error) {
-                // Xuất log chi tiết của SDK ra màn hình Render nếu gặp lỗi tài khoản hoặc hết tiền
                 console.error('Lỗi SDK Google Gemini:', error);
                 return int.editReply({ content: 'Không thể hoàn thành tìm kiếm lúc này do hệ thống AI bận hoặc gặp lỗi kết nối.' }).catch(() => {});
             }
