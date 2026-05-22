@@ -130,5 +130,9 @@
   "HẠT MƯA VƯƠNG VẤN": {
     "value": "ANH GIỜ Ở ĐANG NƠI ĐÂU",
     "type": "thuong"
+  },
+  "ANH GIỜ Ở ĐANG NƠI ĐÂU": {
+    "value": "cc",
+    "type": "thuong"
   }
 }
