@@ -29,6 +29,8 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPO = process.env.GITHUB_REPO;
 
 let lastSearchTime = 0; 
+let currentStatusText = 'Hệ thống lệnh Slash';
+let currentStatusType = 'dnd';
 
 let keyStorage = new Map();
 if (fs.existsSync(DATA_FILE)) {
@@ -41,16 +43,15 @@ if (fs.existsSync(DATA_FILE)) {
 
 const videoRegex = /https?:\/\/(www\.|vt\.|v\.)?(tiktok\.com|youtube\.com|youtu\.be|instagram\.com)\/(shorts\/|reel\/|video\/|\S+)/i;
 
-// Hàm chuyển đổi tiếng Việt có dấu thành không dấu và định dạng chuẩn tên file
 function khongDauFormat(str) {
     return str
-        .normalize('NFD') // Tách các dấu ra khỏi chữ gốc
-        .replace(/[\u0300-\u036f]/g, '') // Xóa các ký tự dấu
-        .replace(/đ/g, 'd').replace(/Đ/g, 'd') // Thay thế chữ đ/Đ
+        .normalize('NFD') 
+        .replace(/[\u0300-\u036f]/g, '') 
+        .replace(/đ/g, 'd').replace(/Đ/g, 'd') 
         .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, '') // Chỉ giữ lại chữ cái, số và khoảng trắng (Xóa ?, !, @, :, v.v...)
+        .replace(/[^a-z0-9\s]/g, '') 
         .trim()
-        .replace(/\s+/g, '_'); // Thay thế khoảng trắng thành dấu gạch dưới _
+        .replace(/\s+/g, '_'); 
 }
 
 async function syncDatabaseToGitHub() {
@@ -108,8 +109,28 @@ function getSimilarity(str1, str2) {
 
 client.on('clientReady', async () => {
     console.log(`Bot Online: ${client.user.tag}`);
+    
+    client.user.setPresence({
+        status: currentStatusType,
+        activities: [{ name: currentStatusText, type: 0 }]
+    });
+
     const commands = [
         new SlashCommandBuilder().setName('status').setDescription('Xem trạng thái hoạt động hiện tại của Bot'),
+        
+        // ĐÃ SỬA: Thay đổi hoàn toàn chữ hiển thị sang Tiếng Việt chuẩn theo ý bạn
+        new SlashCommandBuilder()
+            .setName('setstatus')
+            .setDescription('[Owner] Thay đổi trạng thái hiển thị của Bot')
+            .addStringOption(opt => opt.setName('type').setDescription('Chọn kiểu trạng thái').setRequired(true)
+                .addChoices(
+                    { name: 'Trực Tuyến', value: 'online' },
+                    { name: 'Chờ', value: 'idle' },
+                    { name: 'Vui lòng không làm phiền', value: 'dnd' },
+                    { name: 'Ẩn danh', value: 'invisible' }
+                ))
+            .addStringOption(opt => opt.setName('text').setDescription('Nhập dòng chữ trạng thái tùy chỉnh').setRequired(false)),
+            
         new SlashCommandBuilder()
             .setName('search')
             .setDescription('Tìm kiếm thông tin bằng trí tuệ nhân tạo AI Gemini')
@@ -236,8 +257,8 @@ client.on('interactionCreate', async (int) => {
             if (now - lastSearchTime < SERVER_COOLDOWN) {
                 const timeLeft = ((SERVER_COOLDOWN - (now - lastSearchTime)) / 1000).toFixed(1);
                 return int.reply({ 
-                    content: `Hệ thống AI đang xử lý yêu cầu trước. Vui lòng đợi **${timeLeft} giây** để gọi lượt tiếp theo trên server!`, 
-                    ephemeral: true 
+                    content: `🤖 Hệ thống AI đang xử lý yêu cầu trước. Vui lòng đợi **${timeLeft} giây** để gọi lượt tiếp theo trên server!`, 
+                    epoldown: true 
                 }).catch(console.error);
             }
 
@@ -249,6 +270,13 @@ client.on('interactionCreate', async (int) => {
             }
             
             lastSearchTime = now;
+
+            try {
+                client.user.setPresence({
+                    status: currentStatusType,
+                    activities: [{ name: `🤖 Đang trả lời câu hỏi của ${user.username}...`, type: 0 }]
+                });
+            } catch (statusErr) { console.error(statusErr); }
 
             try {
                 if (!process.env.GEMINI_API_KEY) {
@@ -270,40 +298,65 @@ client.on('interactionCreate', async (int) => {
                 }
 
                 if (textResult.length > 1800) {
-                    // ĐÃ SỬA: Xử lý tạo tên file động theo câu hỏi của người dùng
-                    let shortQuery = query.slice(0, 40); // Cắt bớt nếu câu hỏi quá dài để tên file gọn đẹp
+                    let shortQuery = query.slice(0, 40); 
                     let fileFriendlyName = khongDauFormat(shortQuery);
-                    
-                    // Ghép chữ "kq_" vào đầu và đuôi ".txt" vào cuối
                     let finalFileName = `kq_${fileFriendlyName}.txt`;
 
                     const textBuffer = Buffer.from(textResult, 'utf-8');
                     const txtFile = new AttachmentBuilder(textBuffer, { name: finalFileName });
                     
-                    return int.editReply({ 
+                    await int.editReply({ 
                         content: `📝 **Câu trả lời vượt quá giới hạn hiển thị của Discord (${textResult.length} ký tự).** Toàn bộ nội dung chi tiết đã được tự động xuất ra file văn bản chuẩn dưới đây:`, 
                         files: [txtFile] 
                     }).catch(() => {});
+                } else {
+                    const searchEmbed = new EmbedBuilder()
+                        .setTitle('Kết quả giải đáp từ AI')
+                        .setDescription(textResult)
+                        .setColor('#2b2d31')
+                        .setFooter({ text: `Yêu cầu bởi: ${user.username}` });
+
+                    await int.editReply({ embeds: [searchEmbed] }).catch(() => {});
                 }
-
-                const searchEmbed = new EmbedBuilder()
-                    .setTitle('Kết quả giải đáp từ AI')
-                    .setDescription(textResult)
-                    .setColor('#2b2d31')
-                    .setFooter({ text: `Yêu cầu bởi: ${user.username}` });
-
-                return int.editReply({ embeds: [searchEmbed] }).catch(() => {});
 
             } catch (error) {
                 console.error('Lỗi SDK Google Gemini:', error);
-                return int.editReply({ content: 'Không thể hoàn thành tìm kiếm lúc này do hệ thống AI bận hoặc gặp lỗi kết nối.' }).catch(() => {});
+                await int.editReply({ content: 'Không thể hoàn thành tìm kiếm lúc này do hệ thống AI bận hoặc gặp lỗi kết nối.' }).catch(() => {});
+            } finally {
+                try {
+                    client.user.setPresence({
+                        status: currentStatusType,
+                        activities: [{ name: currentStatusText, type: 0 }]
+                    });
+                } catch (statusErr) { console.error(statusErr); }
             }
+            return;
         }
 
         // CÁC LỆNH QUẢN TRỊ CỦA OWNER
-        if (['addkey', 'listkey', 'deletekey', 'changekey'].includes(commandName) && user.id !== OWNER_ID) {
-            return int.reply({ content: 'Bạn không có quyền quản lý hệ thống key!', ephemeral: true }).catch(console.error);
+        if (['addkey', 'listkey', 'deletekey', 'changekey', 'setstatus'].includes(commandName) && user.id !== OWNER_ID) {
+            return int.reply({ content: 'Bạn không có quyền quản lý hệ thống của Bot!', ephemeral: true }).catch(console.error);
         }
+        
+        if (commandName === 'setstatus') {
+            const statusType = options.getString('type');
+            const statusText = options.getString('text') || 'Hệ thống lệnh Slash';
+            
+            try {
+                currentStatusType = statusType;
+                currentStatusText = statusText;
+
+                client.user.setPresence({
+                    status: currentStatusType,
+                    activities: [{ name: currentStatusText, type: 0 }]
+                });
+                return int.reply({ content: `✅ Đã thay đổi trạng thái hiển thị của Bot thành công!`, ephemeral: true });
+            } catch (e) {
+                console.error(e);
+                return int.reply({ content: 'Gặp sự cố khi thiết lập trạng thái mới!', ephemeral: true });
+            }
+        }
+
         if (commandName === 'status') {
             const memoryUsed = (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2);
             return int.reply(`Bot đang hoạt động ổn định! RAM tiêu thụ: ${memoryUsed} MB. DB đang sử dụng cơ chế đám mây GitHub.`).catch(console.error);
