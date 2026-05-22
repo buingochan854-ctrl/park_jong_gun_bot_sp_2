@@ -257,7 +257,7 @@ client.on('interactionCreate', async (int) => {
             if (now - lastSearchTime < SERVER_COOLDOWN) {
                 const timeLeft = ((SERVER_COOLDOWN - (now - lastSearchTime)) / 1000).toFixed(1);
                 return int.reply({ 
-                    content: `🤖 Hệ thống AI đang xử lý yêu cầu trước. Vui lòng đợi **${timeLeft} giây** để gọi lượt tiếp theo trên server!`, 
+                    content: `Hệ thống AI đang xử lý yêu cầu trước. Vui lòng đợi **${timeLeft} giây** để gọi lượt tiếp theo trên server!`, 
                     epoldown: true 
                 }).catch(console.error);
             }
@@ -274,7 +274,7 @@ client.on('interactionCreate', async (int) => {
             try {
                 client.user.setPresence({
                     status: currentStatusType,
-                    activities: [{ name: `🤖 Đang trả lời câu hỏi của ${user.username}...`, type: 0 }]
+                    activities: [{ name: ` Đang trả lời câu hỏi của ${user.username}...`, type: 0 }]
                 });
             } catch (statusErr) { console.error(statusErr); }
 
@@ -306,7 +306,7 @@ client.on('interactionCreate', async (int) => {
                     const txtFile = new AttachmentBuilder(textBuffer, { name: finalFileName });
                     
                     await int.editReply({ 
-                        content: `📝 **Câu trả lời vượt quá giới hạn hiển thị của Discord (${textResult.length} ký tự).** Toàn bộ nội dung chi tiết đã được tự động xuất ra file văn bản chuẩn dưới đây:`, 
+                        content: ` **Câu trả lời vượt quá giới hạn hiển thị của Discord (${textResult.length} ký tự).** Toàn bộ nội dung chi tiết đã được tự động xuất ra file văn bản chuẩn dưới đây:`, 
                         files: [txtFile] 
                     }).catch(() => {});
                 } else {
@@ -350,7 +350,7 @@ client.on('interactionCreate', async (int) => {
                     status: currentStatusType,
                     activities: [{ name: currentStatusText, type: 0 }]
                 });
-                return int.reply({ content: `✅ Đã thay đổi trạng thái hiển thị của Bot thành công!`, ephemeral: true });
+                return int.reply({ content: `Đã thay đổi trạng thái hiển thị của Bot thành công!`, ephemeral: true });
             } catch (e) {
                 console.error(e);
                 return int.reply({ content: 'Gặp sự cố khi thiết lập trạng thái mới!', ephemeral: true });
