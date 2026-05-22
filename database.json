@@ -124,7 +124,7 @@
     "type": "thuong"
   },
   "Foxname Hub": {
-    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/ronnei/Ronnie.HTK/refs/heads/main/FoxName-nokey\"))()\nKey Script : \nHTK.RonneiKey_cd5847ba430e9f2e5807ed95125cb243",
+    "value": "loadstring(game:HttpGet(\"https://rawscripts.net/raw/Survive-Zombie-Arena-Foxname-instant-kill-and-auto-play-etc-keyless-218156\"))()",
     "type": "dep"
   },
   "HẠT MƯA VƯƠNG VẤN": {
