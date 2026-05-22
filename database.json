@@ -127,10 +127,6 @@
     "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/ronnei/Ronnie.HTK/refs/heads/main/FoxName-nokey\"))()\nKey Script : \nHTK.RonneiKey_cd5847ba430e9f2e5807ed95125cb243",
     "type": "dep"
   },
-  "HẠT MƯA VƯƠNG VẤN": {
-    "value": "ANH GIỜ Ở ĐANG NƠI ĐÂU",
-    "type": "thuong"
-  },
   "ANH GIỜ Ở ĐANG NƠI ĐÂU": {
     "value": "cc",
     "type": "thuong"
