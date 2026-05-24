@@ -130,5 +130,9 @@
   "HẠT MƯA VƯƠNG VẤN": {
     "value": "ANH GIỜ Ở ĐANG NƠI ĐÂU",
     "type": "thuong"
+  },
+  "No key hub": {
+    "value": "loadstring(game:HttpGet(\"https://rawscripts.net/raw/Survive-Zombie-Arena-No-Key-Free-212308\"))()",
+    "type": "dep"
   }
 }
