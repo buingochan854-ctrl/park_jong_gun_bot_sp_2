@@ -134,5 +134,9 @@
   "No key hub": {
     "value": "loadstring(game:HttpGet(\"https://rawscripts.net/raw/Survive-Zombie-Arena-No-Key-Free-212308\"))()",
     "type": "dep"
+  },
+  "Miyu Hub 1": {
+    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/KAISER2M/Survive-Zombie-Arena/refs/heads/main/MIYU_HUBZTA.lua\"))()",
+    "type": "dep"
   }
 }
