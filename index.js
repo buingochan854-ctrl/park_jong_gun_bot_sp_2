@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, AttachmentBuilder, SlashCommandBuilder, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits, AttachmentBuilder, SlashCommandBuilder, Routes, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
 const { GoogleGenAI } = require('@google/genai'); 
 const axios = require('axios');
 const express = require('express');
@@ -9,8 +9,8 @@ require('dotenv').config();
 // --- 1. WEB SERVER GIỮ BOT ONLINE ---
 const app = express(); 
 const PORT = process.env.PORT || 10000; 
-app.get('/', (req, res) => res.status(200).send('Park Jong Gun Bot đang chạy'));
-app.listen(PORT, '0.0.0.0', () => console.log(`Web Server định tuyến tại port: ${PORT}`));
+app.get('/', (req, res) => res.status(200).send('Park Jong Gun Bot dang chay'));
+app.listen(PORT, '0.0.0.0', () => console.log(`Web Server dinh tuyen tai port: ${PORT}`));
 
 // --- 2. CẤU HÌNH BOT & DATABASE ---
 const client = new Client({
@@ -32,13 +32,21 @@ let lastSearchTime = 0;
 let currentStatusText = 'Hệ thống lệnh Slash';
 let currentStatusType = 'dnd';
 
+let chatbotChannels = {};
+
 let keyStorage = new Map();
 if (fs.existsSync(DATA_FILE)) {
     try {
         const fileData = fs.readFileSync(DATA_FILE, 'utf8');
-        keyStorage = new Map(Object.entries(JSON.parse(fileData)));
-        console.log('Đã nạp thành công bộ nhớ key từ file cục bộ.');
-    } catch (e) { console.error('Lỗi đọc database cục bộ:', e); }
+        const parsedData = JSON.parse(fileData);
+        
+        if (parsedData.chatbotChannels) {
+            chatbotChannels = parsedData.chatbotChannels;
+            delete parsedData.chatbotChannels;
+        }
+        keyStorage = new Map(Object.entries(parsedData));
+        console.log('Da nap thanh cong bo nho tu file cuc bo.');
+    } catch (e) { console.error('Loi doc database cuc bo:', e); }
 }
 
 const videoRegex = /https?:\/\/(www\.|vt\.|v\.)?(tiktok\.com|youtube\.com|youtu\.be|instagram\.com)\/(shorts\/|reel\/|video\/|\S+)/i;
@@ -57,6 +65,8 @@ function khongDauFormat(str) {
 async function syncDatabaseToGitHub() {
     try {
         const obj = Object.fromEntries(keyStorage);
+        obj.chatbotChannels = chatbotChannels;
+        
         const contentString = JSON.stringify(obj, null, 2);
         
         await fs.promises.writeFile(DATA_FILE, contentString, 'utf8');
@@ -77,14 +87,14 @@ async function syncDatabaseToGitHub() {
         } catch (err) {}
 
         await axios.put(url, {
-            message: 'Bot tự động cập nhật hệ thống dữ liệu key',
+            message: 'Bot tu dong cap nhat he thong du lieu dam may',
             content: Buffer.from(contentString).toString('base64'),
             sha: sha || undefined
         }, { headers });
 
-        console.log('Đã đồng bộ và lưu trữ dữ liệu vĩnh viễn lên GitHub thành công.');
+        console.log('Da dong bo du lieu vinh vien len GitHub thanh cong.');
     } catch (error) {
-        console.error('Lỗi đồng bộ GitHub:', error.message);
+        console.error('Loi dong bo GitHub:', error.message);
     }
 }
 
@@ -118,7 +128,15 @@ client.on('clientReady', async () => {
     const commands = [
         new SlashCommandBuilder().setName('status').setDescription('Xem trạng thái hoạt động hiện tại của Bot'),
         
-        // ĐÃ SỬA: Thay đổi hoàn toàn chữ hiển thị sang Tiếng Việt chuẩn theo ý bạn
+        new SlashCommandBuilder()
+            .setName('chatbotgmn')
+            .setDescription('Kích hoạt ChatBot AI Gemini Trong một kênh nào đó.')
+            .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+        new SlashCommandBuilder()
+            .setName('chatbotoff')
+            .setDescription('Tắt ChatBot AI')
+            .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+
         new SlashCommandBuilder()
             .setName('setstatus')
             .setDescription('[Owner] Thay đổi trạng thái hiển thị của Bot')
@@ -157,17 +175,72 @@ client.on('clientReady', async () => {
     ];
     try {
         await client.rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-        console.log('Đã cập nhật xong hệ thống lệnh Slash');
-    } catch (err) { console.error('Lỗi nạp lệnh Slash:', err); }
+        console.log('Da cap nhat xong he thong lenh Slash');
+    } catch (err) { console.error('Loi nap lenh Slash:', err); }
 });
 
-// --- 3. TỰ ĐỘNG QUÉT TIN NHẮN CHÍNH XÁC ---
+// --- 3. TỰ ĐỘNG QUÉT TIN NHẮN CHÍNH XÁC & XỬ LÝ CHATBOT KÊNH ---
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     const rawContent = message.content.trim();
     
     if (rawContent.toLowerCase() === `${PREFIX}ping`) {
         return message.reply(`Pong! Park Jong Gun vẫn đang online`).catch(console.error);
+    }
+
+    if (chatbotChannels[message.channel.id] && !rawContent.startsWith(PREFIX)) {
+        if (!rawContent || videoRegex.test(message.content)) return;
+
+        try {
+            await message.channel.sendTyping();
+
+            try {
+                client.user.setPresence({
+                    status: currentStatusType,
+                    activities: [{ name: 'Gemini Đang Suy Nghĩ...', type: 0 }]
+                });
+            } catch (err) {}
+
+            if (!process.env.GEMINI_API_KEY) {
+                return message.reply('Lỗi: Hệ thống chưa cấu hình GEMINI_API_KEY.').catch(() => {});
+            }
+
+            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: rawContent,
+            });
+
+            let textResult = response && response.text ? response.text : "Không nhận được phản hồi hợp lệ từ AI.";
+
+            if (textResult.length > 1800) {
+                let shortQuery = rawContent.slice(0, 40); 
+                let fileFriendlyName = khongDauFormat(shortQuery);
+                let finalFileName = `kq_${fileFriendlyName}.txt`;
+
+                const textBuffer = Buffer.from(textResult, 'utf-8');
+                const txtFile = new AttachmentBuilder(textBuffer, { name: finalFileName });
+
+                await message.reply({ 
+                    content: `Câu trả lời vượt quá giới hạn hiển thị (${textResult.length} ký tự). Mình đã tự động xuất ra file văn bản chuẩn:`, 
+                    files: [txtFile] 
+                }).catch(() => {});
+            } else {
+                await message.reply({ content: textResult }).catch(() => {});
+            }
+
+        } catch (error) {
+            console.error('Loi ChatBot AI:', error);
+            await message.reply({ content: 'Không thể hoàn thành xử lý nội dung chat lúc này do hệ thống AI bận.' }).catch(() => {});
+        } finally {
+            try {
+                client.user.setPresence({
+                    status: currentStatusType,
+                    activities: [{ name: currentStatusText, type: 0 }]
+                });
+            } catch (err) {}
+        }
+        return; 
     }
 
     let bestMatchKey = null;
@@ -221,15 +294,13 @@ client.on('messageCreate', async (message) => {
                 const file = new AttachmentBuilder(videoUrl, { name: 'video.mp4' });
                 
                 await message.reply({ content: 'Video của bạn đây:', files: [file] }).catch(async (err) => {
-                    console.log("Discord reject file upload, sending direct link instead.");
                     await message.reply({ content: `Video dung lượng lớn không thể upload trực tiếp! Bạn có thể bấm vào đây để xem hoặc tải về máy: [Bấm vào để xem](${videoUrl})` });
                 });
             } else {
                 await message.reply({ content: 'Hệ thống API không trích xuất được link tải cho video này. Vui lòng thử lại sau!' });
             }
         } catch (e) { 
-            console.error('Lỗi tải video:', e.message);
-            await message.reply({ content: `Không thể tải video lúc này! (Lý do: Server API phản hồi chậm hoặc link video bị giới hạn riêng tư).` });
+            await message.reply({ content: `Không thể tải video lúc này!` });
         }
     }
 });
@@ -247,8 +318,43 @@ client.on('interactionCreate', async (int) => {
     }
 
     if (int.isChatInputCommand()) {
-        const { commandName, options, user } = int;
+        const { commandName, options, user, channel } = int;
         
+        if (commandName === 'chatbotgmn') {
+            await int.deferReply();
+            
+            try {
+                client.user.setPresence({
+                    status: currentStatusType,
+                    activities: [{ name: 'Gemini Đang Suy Nghĩ...', type: 0 }]
+                });
+            } catch (err) {}
+
+            chatbotChannels[channel.id] = true;
+            await syncDatabaseToGitHub();
+
+            try {
+                client.user.setPresence({
+                    status: currentStatusType,
+                    activities: [{ name: currentStatusText, type: 0 }]
+                });
+            } catch (err) {}
+
+            return int.editReply({ content: 'Đã kích hoạt ChatBot thành công!' });
+        }
+
+        if (commandName === 'chatbotoff') {
+            await int.deferReply();
+            
+            if (chatbotChannels[channel.id]) {
+                delete chatbotChannels[channel.id];
+                await syncDatabaseToGitHub();
+                return int.editReply({ content: 'Đã tắt ChatBot AI tại kênh này thành công!' });
+            } else {
+                return int.editReply({ content: 'Kênh này hiện tại chưa từng kích hoạt ChatBot AI.' });
+            }
+        }
+
         if (commandName === 'search') {
             const query = options.getString('query');
             const now = Date.now();
@@ -257,45 +363,33 @@ client.on('interactionCreate', async (int) => {
             if (now - lastSearchTime < SERVER_COOLDOWN) {
                 const timeLeft = ((SERVER_COOLDOWN - (now - lastSearchTime)) / 1000).toFixed(1);
                 return int.reply({ 
-                    content: `Hệ thống AI đang xử lý yêu cầu trước. Vui lòng đợi **${timeLeft} giây** để gọi lượt tiếp theo trên server!`, 
-                    epoldown: true 
+                    content: `Hệ thống AI đang xử lý yêu cầu trước. Vui lòng đợi ${timeLeft} giây!`, 
+                    ephemeral: true 
                 }).catch(console.error);
             }
 
-            try {
-                await int.deferReply();
-            } catch (deferError) {
-                console.error("Lỗi Defer Timeout:", deferError.message);
-                return; 
-            }
-            
+            try { await int.deferReply(); } catch (e) { return; }
             lastSearchTime = now;
 
             try {
                 client.user.setPresence({
                     status: currentStatusType,
-                    activities: [{ name: ` Đang trả lời câu hỏi của ${user.username}...`, type: 0 }]
+                    activities: [{ name: `Đang trả lời câu hỏi của ${user.username}...`, type: 0 }]
                 });
-            } catch (statusErr) { console.error(statusErr); }
+            } catch (statusErr) {}
 
             try {
                 if (!process.env.GEMINI_API_KEY) {
-                    return int.editReply({ content: 'Lỗi: Hệ thống chưa cấu hình GEMINI_API_KEY trên môi trường Render.' }).catch(() => {});
+                    return int.editReply({ content: 'Lỗi: Hệ thống chưa cấu hình GEMINI_API_KEY.' }).catch(() => {});
                 }
 
                 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-                
                 const response = await ai.models.generateContent({
                     model: 'gemini-2.5-flash',
                     contents: query,
                 });
 
-                let textResult = '';
-                if (response && response.text) {
-                    textResult = response.text;
-                } else {
-                    textResult = "Không nhận được phản hồi văn bản hợp lệ từ máy chủ AI.";
-                }
+                let textResult = response && response.text ? response.text : "Không nhận được phản hồi từ AI.";
 
                 if (textResult.length > 1800) {
                     let shortQuery = query.slice(0, 40); 
@@ -306,7 +400,7 @@ client.on('interactionCreate', async (int) => {
                     const txtFile = new AttachmentBuilder(textBuffer, { name: finalFileName });
                     
                     await int.editReply({ 
-                        content: ` **Câu trả lời vượt quá giới hạn hiển thị của Discord (${textResult.length} ký tự).** Toàn bộ nội dung chi tiết đã được tự động xuất ra file văn bản chuẩn dưới đây:`, 
+                        content: `Câu trả lời vượt quá giới hạn hiển thị (${textResult.length} ký tự). Đã xuất ra file văn bản chuẩn dưới đây:`, 
                         files: [txtFile] 
                     }).catch(() => {});
                 } else {
@@ -320,20 +414,19 @@ client.on('interactionCreate', async (int) => {
                 }
 
             } catch (error) {
-                console.error('Lỗi SDK Google Gemini:', error);
-                await int.editReply({ content: 'Không thể hoàn thành tìm kiếm lúc này do hệ thống AI bận hoặc gặp lỗi kết nối.' }).catch(() => {});
+                console.error(error);
+                await int.editReply({ content: 'Không thể hoàn thành tìm kiếm lúc này.' }).catch(() => {});
             } finally {
                 try {
                     client.user.setPresence({
                         status: currentStatusType,
                         activities: [{ name: currentStatusText, type: 0 }]
                     });
-                } catch (statusErr) { console.error(statusErr); }
+                } catch (statusErr) {}
             }
             return;
         }
 
-        // CÁC LỆNH QUẢN TRỊ CỦA OWNER
         if (['addkey', 'listkey', 'deletekey', 'changekey', 'setstatus'].includes(commandName) && user.id !== OWNER_ID) {
             return int.reply({ content: 'Bạn không có quyền quản lý hệ thống của Bot!', ephemeral: true }).catch(console.error);
         }
@@ -350,9 +443,8 @@ client.on('interactionCreate', async (int) => {
                     status: currentStatusType,
                     activities: [{ name: currentStatusText, type: 0 }]
                 });
-                return int.reply({ content: `Đã thay đổi trạng thái hiển thị của Bot thành công!`, ephemeral: true });
+                return int.reply({ content: 'Đã thay đổi trạng thái hiển thị của Bot thành công!', ephemeral: true });
             } catch (e) {
-                console.error(e);
                 return int.reply({ content: 'Gặp sự cố khi thiết lập trạng thái mới!', ephemeral: true });
             }
         }
@@ -425,7 +517,7 @@ client.on('interactionCreate', async (int) => {
                 }
 
                 if (!foundKeyData) {
-                    return await int.reply({ content: 'Lỗi: Key này không còn tồn tại trên hệ thống hoặc dữ liệu bị lệch cấu trúc.', ephemeral: true });
+                    return await int.reply({ content: 'Lỗi: Key này không còn tồn tại trên hệ thống.', ephemeral: true });
                 }
 
                 const scriptContent = foundKeyData.value;
@@ -434,24 +526,19 @@ client.on('interactionCreate', async (int) => {
                 if (sendContent.length > 2000) {
                     const buffer = Buffer.from(scriptContent, 'utf-8');
                     const file = new AttachmentBuilder(buffer, { name: 'script.txt' });
-                    return await int.reply({ content: 'Script quá dài (>2000 ký tự). Tải file về tại đây:', files: [file], ephemeral: true });
+                    return await int.reply({ content: 'Script quá dài. Tải file về tại đây:', files: [file], ephemeral: true });
                 }
 
                 return await int.reply({ content: sendContent, ephemeral: true });
             }
         } catch (error) {
-            console.error('Lỗi tương tác nút bấm copy:', error);
             if (!int.replied) await int.reply({ content: 'Hệ thống gặp sự cố khi trích xuất dữ liệu key.', ephemeral: true }).catch(() => {});
         }
     }
 });
 
-process.on('unhandledRejection', error => {
-    console.error('Phát hiện lỗi bất đồng bộ chưa xử lý:', error);
-});
-process.on('uncaughtException', error => {
-    console.error('Phát hiện lỗi ngoại lệ chưa xử lý:', error);
-});
+process.on('unhandledRejection', error => { console.error(error); });
+process.on('uncaughtException', error => { console.error(error); });
 
 client.login(process.env.DISCORD_TOKEN);
 
