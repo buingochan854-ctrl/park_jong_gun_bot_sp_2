@@ -139,7 +139,5 @@
     "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/KAISER2M/Survive-Zombie-Arena/refs/heads/main/MIYU_HUBZTA.lua\"))()",
     "type": "dep"
   },
-  "chatbotChannels": {
-    "1506875499194875961": true
-  }
+  "chatbotChannels": {}
 }
