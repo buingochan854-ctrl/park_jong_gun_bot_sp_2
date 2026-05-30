@@ -167,5 +167,9 @@
     "value": "script_key = \"\" -- default is FREEMIUM]\nloadstring(game:HttpGet(\"https://raw.githubusercontent.com/WhiteX1208/Scripts/refs/heads/main/BF-Beta.lua\"))()",
     "type": "dep"
   },
+  "Adz Hub": {
+    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/AnDepZaiHub/AnDepZaiHubBeta/refs/heads/main/AnDepZaiHubBeta.lua\"))()",
+    "type": "dep"
+  },
   "chatbotChannels": {}
 }
