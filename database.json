@@ -159,5 +159,9 @@
     "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Omgshit/Scripts/main/MainLoader.lua\"))()",
     "type": "dep"
   },
+  "Blue X Hub": {
+    "value": "_G.AutoTranslate = false\n_G.SaveConfig = true\nloadstring(game:HttpGet(\"https://raw.githubusercontent.com/Dev-BlueX/BlueX-Hub/refs/heads/main/Main.lua\"))()",
+    "type": "dep"
+  },
   "chatbotChannels": {}
 }
