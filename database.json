@@ -175,16 +175,12 @@
     "value": "repeat wait() until game:IsLoaded() and game.Players.LocalPlayer  getgenv().team = \"Pirates\" -- Pirates or Marines loadstring(game:HttpGet(\"https://raw.githubusercontent.com/vinh129150/hack/refs/heads/main/Bloxfruits.lua\"))()",
     "type": "dep"
   },
-  "Ronix Hub": {
-    "value": "loadstring(game:HttpGet(\"https://api.luarmor.net/files/v3/loaders/fda9babd071d6b536a745774b6bc681c.lua\"))()",
+  "Jade Hub": {
+    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Jadelly/bloxfruit/refs/heads/main/Jade\", true))()",
     "type": "dep"
   },
-  "Aurora Hub": {
-    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Jadelly261/BloxFruits/main/Aurora\", true))()",
-    "type": "dep"
-  },
-  "Vxeze Hub": {
-    "value": "repeat task.wait() until game:IsLoaded()\ngetgenv().Premium = false — true\nloadstring(game:HttpGet(\"https://raw.githubusercontent.com/Dex-Bear/VxezeHubLoader/refs/heads/main/BloxFruit.lua\"))()",
+  "Hdanh Hub": {
+    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/hdanhvip/hdanhhub/refs/heads/main/BananaHub.lua.txt\"))()",
     "type": "dep"
   },
   "chatbotChannels": {}
