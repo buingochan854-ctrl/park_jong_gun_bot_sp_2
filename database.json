@@ -163,8 +163,8 @@
     "value": "_G.AutoTranslate = false\n_G.SaveConfig = true\nloadstring(game:HttpGet(\"https://raw.githubusercontent.com/Dev-BlueX/BlueX-Hub/refs/heads/main/Main.lua\"))()",
     "type": "dep"
   },
-  "Teddy Hub": {
-    "value": "repeat task.wait() until game:IsLoaded() and game:GetService(\"Players\") and game.Players.LocalPlayer and game.Players.LocalPlayer:FindFirstChild(\"PlayerGui\") loadstring(game:HttpGet(\"https://api.luarmor.net/files/v4/loaders/e86ed284a22672d29e906214e7bbf8b9.lua\"))()",
+  "Dragon Hub": {
+    "value": "repeat wait() until game:IsLoaded() and game.Players.LocalPlayer  getgenv().team = \"Pirates\" -- Pirates or Marines loadstring(game:HttpGet(\"https://raw.githubusercontent.com/dragonhubdev/dragonwitheveryone/refs/heads/main/Main-BF.lua\"))()",
     "type": "dep"
   },
   "chatbotChannels": {}
