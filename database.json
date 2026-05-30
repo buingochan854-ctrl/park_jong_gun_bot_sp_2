@@ -183,5 +183,9 @@
     "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Jadelly261/BloxFruits/main/Aurora\", true))()",
     "type": "dep"
   },
+  "Vxeze Hub": {
+    "value": "repeat task.wait() until game:IsLoaded()\ngetgenv().Premium = false — true\nloadstring(game:HttpGet(\"https://raw.githubusercontent.com/Dex-Bear/VxezeHubLoader/refs/heads/main/BloxFruit.lua\"))()",
+    "type": "dep"
+  },
   "chatbotChannels": {}
 }
