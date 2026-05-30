@@ -151,8 +151,8 @@
     "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/acsu123/HOHO_H/main/Loading_UI\"))()",
     "type": "dep"
   },
-  "Speed hub": {
-    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/AhmadV99/Speed-Hub-X/main/Speed%20Hub%20X.lua\", true))()",
+  "Quantum Hub": {
+    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/flazhy/QuantumOnyx/refs/heads/main/QuantumOnyx.lua\"))()",
     "type": "dep"
   },
   "chatbotChannels": {}
