@@ -191,5 +191,9 @@
     "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/DumHubdz/DumHubdzVN/refs/heads/main/DumHubdzVN.lua\"))()",
     "type": "dep"
   },
+  "3Toc Hub": {
+    "value": "getgenv().Team = \"Marines\" --// Pirates loadstring(game:HttpGet(\"https://api.luarmor.net/files/v4/loaders/245375592509cc0bcb3526982431ab18.lua\"))()",
+    "type": "dep"
+  },
   "chatbotChannels": {}
 }
