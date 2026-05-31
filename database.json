@@ -195,6 +195,10 @@
     "value": "getgenv().Team = \"Marines\" --// Pirates loadstring(game:HttpGet(\"https://api.luarmor.net/files/v4/loaders/245375592509cc0bcb3526982431ab18.lua\"))()",
     "type": "dep"
   },
+  "Sol Hub": {
+    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/GoblinKun009/Script/refs/heads/main/SolHub\", true))()",
+    "type": "dep"
+  },
   "chatbotChannels": {
     "1510188013232193607": true
   }
