@@ -199,6 +199,10 @@
     "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/GoblinKun009/Script/refs/heads/main/SolHub\", true))()",
     "type": "dep"
   },
+  "Bone Hub": {
+    "value": "repeat wait() until game:IsLoaded() and game.Players.LocalPlayer loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Ohofo2279/ObofoRoblox/refs/heads/main/BloxFruits.lua\", true))()",
+    "type": "dep"
+  },
   "chatbotChannels": {
     "1510188013232193607": true
   }
