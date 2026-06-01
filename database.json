@@ -219,6 +219,10 @@
     "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/xQuartyx/QuartyzScript/main/Loader.lua\"))()",
     "type": "dep"
   },
+  "High Hub": {
+    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/Jadelly/bloxfruit/refs/heads/main/HighLoader\", true))()",
+    "type": "dep"
+  },
   "chatbotChannels": {
     "1510188013232193607": true
   }
