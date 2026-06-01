@@ -211,6 +211,10 @@
     "value": "repeat wait() until game:IsLoaded() and game.Players.LocalPlayer loadstring(game:HttpGet(\"https://raw.githubusercontent.com/shinichi-dz/phucshinsayhi/refs/heads/main/Loader.lua\"))()",
     "type": "dep"
   },
+  "Than Hub": {
+    "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/thantzy/thanhub/refs/heads/main/thanv1\"))()",
+    "type": "dep"
+  },
   "chatbotChannels": {
     "1510188013232193607": true
   }
