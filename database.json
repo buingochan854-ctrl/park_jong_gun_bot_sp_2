@@ -207,6 +207,10 @@
     "value": "loadstring(game:HttpGet(\"https://api.luarmor.net/files/v3/loaders/fda9babd071d6b536a745774b6bc681c.lua\"))()",
     "type": "dep"
   },
+  "God Hub": {
+    "value": "repeat wait() until game:IsLoaded() and game.Players.LocalPlayer loadstring(game:HttpGet(\"https://raw.githubusercontent.com/shinichi-dz/phucshinsayhi/refs/heads/main/Loader.lua\"))()",
+    "type": "dep"
+  },
   "chatbotChannels": {
     "1510188013232193607": true
   }
