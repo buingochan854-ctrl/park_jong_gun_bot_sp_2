@@ -231,6 +231,10 @@
     "value": ".",
     "type": "dep"
   },
+  "Test": {
+    "value": ".",
+    "type": "thuong"
+  },
   "chatbotChannels": {
     "1510188013232193607": true,
     "1511285137852076182": true
