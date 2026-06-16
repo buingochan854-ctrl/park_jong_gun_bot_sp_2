@@ -131,10 +131,6 @@
     "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/KAISER2M/Survive-Zombie-Arena/refs/heads/main/MIYU_HUBZTA.lua\"))()",
     "type": "dep"
   },
-  "Blox Fruit 2": {
-    "value": "# Main Farm\nHoho Hub\nSpeed Hub\nQuantum Hub\nOmg Hub\nGravity Hub\nBlue X Hub\nTeddy Hub\nDragon Hub\nNight Hub\nAdz Hub\nBacon Hub\nRonix Hub\nJade Hub\nAurora Hub\nVxeze Hub\nHdanh Hub\nNak Hub\nDum Hub\n3Toc Hub\nBone Hub\nSol Hub\nRadius Hub\nGod Hub\nThan Hub\nQuartyz Hub\nHigh Hub\nHeart Hub\nDarksoul Hub\nPmt Hub\nBear Hub\nBostur Hub\nTurbo Lite Hub\nTày Hub\nOk Hub\nThunder Hub\nDark X Hub\nHao Mod Hub\nMidnight Hub\nNat Aov Hub\nBã Mía Hub\nTuan Anh IOS Hub\nEgo Hub\nBuffalo Hub\nKing Rua Hub\nSetting Hub\nXova Hub\nOrange Hub\nKhá Bảnh Hub\nSolix Hub\nNazux Hub\nRise Hub\nAura Hub\nCokka Hub\nLonghihi Hub\nMoster Hub\nAbacaxi Hub\nMeo X Hub\nTsuo Hub\nNgọc Bổng V2\nXeno Hub\nGod Hub \nNht X Hub\nZynex Hub\nTDT Hub \nZYN Hub \nZinner Hub \ntron hub\nTG Hub\nRubu v5\nRubu v6\nRubu×hoho\nMin v5\nBN Hub\nDatthg Hoho \nDraco hub\nNeji Hub\nTrẩu v9\nTrẩu v10\nTrẩu new v1 \nGravity hub main \n# Find Fruit \nGravity hub Find Fruit \nHNC Find Fruit \n# Auto Race/Kaitun V4/Pull Lever\nKaitun Cyborg\nAuto lấy ghoul \nAuto lấy cyborg \nMizu Hub Auto lấy Cyborg\nTeddy Hub Kaitun V4 \nNight Hub Auto Pull Lever\nBlue Hub Auto Pull Lever \n# Kaitun Blox Fruit Farm\nGravity hub kaitun  \nNight Hub Kaitun \nBlue Hub Kaitun \nAura Hub Kaitun \n# Script Hop Server \nNight Hop Boss\nTeddy hub Hop sevrer\nOk Hub hop server \nHop server vip\n# Script PVP\nAimbot PVP\nLonely Hub PVP\n# Script Farm Bounty\nHoho Farm bounty\nTDT Farm bounty\nNight Hub Auto Bounty \nNight Hub Auto Bounty M1 Fruits \nBlue Hub Auto Bounty",
-    "type": "thuong"
-  },
   "Hoho Hub": {
     "value": "loadstring(game:HttpGet(\"https://raw.githubusercontent.com/acsu123/HOHO_H/main/Loading_UI\"))()",
     "type": "dep"
