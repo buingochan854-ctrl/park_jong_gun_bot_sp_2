@@ -15,10 +15,6 @@
     "value": "loadstring(game:HttpGet(\"https://api.jnkie.com/api/v1/luascripts/public/5ca430b86a718571e5342b93791f7ac17ef8107f8a93e14efdc76881346857f0/download\"))()",
     "type": "dep"
   },
-  "Script": {
-    "value": "# Script Roblox\n- Blox fruit 1\n- Blox Fruit 2 \n- Titan fishing\n- Tsb\n- Evade \n- Sailor Piece\n- Fix lag\n- Script Fly\n- Survive Zombie Arena",
-    "type": "thuong"
-  },
   "Tsb": {
     "value": "# TSB Script \n- Senpai hub\n- Ns hub\n- Star hub\n- Tamhub\n- Forge hub",
     "type": "thuong"
